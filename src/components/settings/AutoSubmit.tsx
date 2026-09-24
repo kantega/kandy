@@ -7,14 +7,13 @@ import { useOsType } from "../../hooks/useOsType";
 import type { AutoSubmitKey } from "@/bindings";
 
 interface AutoSubmitProps {
-  descriptionMode?: "inline" | "tooltip";
   grouped?: boolean;
 }
 
 type AutoSubmitOptionValue = AutoSubmitKey | "off";
 
 export const AutoSubmit: React.FC<AutoSubmitProps> = React.memo(
-  ({ descriptionMode = "tooltip", grouped = false }) => {
+  ({ grouped = false }) => {
     const { t } = useTranslation();
     const osType = useOsType();
     const { getSetting, updateSetting, isUpdating } = useSettings();
@@ -65,7 +64,6 @@ export const AutoSubmit: React.FC<AutoSubmitProps> = React.memo(
       <SettingContainer
         title={t("settings.advanced.autoSubmit.title")}
         description={t("settings.advanced.autoSubmit.description")}
-        descriptionMode={descriptionMode}
         grouped={grouped}
       >
         <Dropdown

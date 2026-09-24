@@ -1,0 +1,590 @@
+{
+  "tray": {
+    "settings": "Innstillinger …",
+    "copyLastTranscript": "Kopier siste transkripsjon",
+    "unloadModel": "Last ut modell",
+    "model": "Modell",
+    "quit": "Avslutt",
+    "cancel": "Avbryt",
+    "secureInputWarning": "⚠ Snarveier blokkert av Secure Input"
+  },
+  "sidebar": {
+    "general": "Generelt",
+    "models": "Modeller",
+    "advanced": "Avansert",
+    "postProcessing": "Etterbehandling",
+    "history": "Historikk",
+    "about": "Om",
+    "meeting": "Møte",
+    "navLabel": "Innstillingsområder",
+    "descriptions": {
+      "general": "Hurtigtast, mikrofon, lyd og utseende for daglig diktering.",
+      "meeting": "Ta opp eller last opp et møte, få transkripsjon og norsk sammendrag.",
+      "history": "Alt du har diktert, med lyd, søkbart og eksporterbart.",
+      "models": "Last ned og velg Whisper-modellen som gjør transkripsjonen.",
+      "advanced": "Oppstart, overlay, utmatingsmetode og transkripsjonsjusteringer.",
+      "postProcessing": "Rydd opp i transkripsjoner med en språkmodell før innliming.",
+      "about": "Versjon, lisenser og hvor du får hjelp."
+    },
+    "groups": {
+      "use": "Bruk",
+      "configure": "Innstillinger"
+    }
+  },
+  "onboarding": {
+    "subtitle": "For å komme i gang, velg en transkripsjonsmodell",
+    "existingModelsTitle": "Kompatible modeller",
+    "downloadModelsTitle": "Tilgjengelig for nedlasting",
+    "showAllModels": "Vis alle {{total}} modeller",
+    "showFewerModels": "Vis færre modeller",
+    "recommended": "Anbefalt",
+    "customModelDescription": "Ikke offisielt støttet",
+    "modelCard": {
+      "accuracy": "nøyaktighet",
+      "speed": "hastighet"
+    },
+    "models": {
+      "small": {
+        "name": "Whisper Small",
+        "description": "Rask og rimelig nøyaktig."
+      },
+      "medium": {
+        "name": "Whisper Medium",
+        "description": "God nøyaktighet, middels hastighet."
+      },
+      "turbo": {
+        "name": "Whisper Turbo",
+        "description": "Balansert nøyaktighet og hastighet."
+      },
+      "large": {
+        "name": "Whisper Large",
+        "description": "God nøyaktighet, men treg."
+      }
+    },
+    "errors": {
+      "selectModel": "Kunne ikke velge modell"
+    },
+    "permissions": {
+      "title": "Tillatelser kreves",
+      "description": "Kandy trenger noen tillatelser for å fungere.",
+      "microphone": {
+        "title": "Mikrofontilgang",
+        "description": "Nødvendig for å høre stemmen din."
+      },
+      "accessibility": {
+        "title": "Tilgjengelighet",
+        "description": "Nødvendig for å lime inn transkribert tekst i applikasjoner."
+      },
+      "grant": "Gi tillatelse",
+      "granted": "Gitt",
+      "waiting": "Venter …",
+      "allGranted": "Klart!",
+      "errors": {
+        "checkFailed": "Kunne ikke sjekke tillatelser. Prøv igjen.",
+        "requestFailed": "Kunne ikke be om tillatelse. Prøv igjen."
+      }
+    }
+  },
+  "modelSelector": {
+    "custom": "Egendefinert",
+    "active": "Aktiv",
+    "switching": "Bytter …",
+    "verifyingGeneric": "Verifiserer …",
+    "downloading": "Laster ned {{percentage}} %",
+    "deleteModel": "Slett {{modelName}}",
+    "downloadSpeed": "{{speed}} MB/s",
+    "cancel": "Avbryt",
+    "cancelDownload": "Avbryt nedlasting",
+    "capabilities": {
+      "languageSelection": "Støtter flere innspråk",
+      "singleLanguage": "Støtter kun dette språket",
+      "norwegianAndEnglish": "Norsk og engelsk",
+      "norwegianOnly": "Kun norsk",
+      "englishOnly": "Kun engelsk",
+      "otherLanguages": "Verken norsk eller engelsk"
+    }
+  },
+  "settings": {
+    "modelSettings": {
+      "title": "Innstillinger for {{model}}"
+    },
+    "general": {
+      "title": "Generelt",
+      "shortcut": {
+        "title": "Kandy-snarveier",
+        "description": "Sett opp tastatursnarveier for å starte tale-til-tekst",
+        "loading": "Laster snarveier …",
+        "none": "Ingen snarveier satt opp",
+        "notFound": "Snarvei ikke funnet",
+        "pressKeys": "Trykk taster …",
+        "bindings": {
+          "transcribe": {
+            "name": "Transkripsjonssnarvei",
+            "description": "Tastatursnarvei for å ta opp og transkribere stemmen din."
+          },
+          "cancel": {
+            "name": "Avbrytssnarvei",
+            "description": "Tastatursnarvei for å avbryte pågående opptak."
+          },
+          "transcribe_with_post_process": {
+            "name": "Etterbehandlings-hurtigtast",
+            "description": "Valgfritt: en dedikert hurtigtast som alltid kjører AI-etterbehandling på transkripsjonen."
+          }
+        },
+        "errors": {
+          "restore": "Kunne ikke gjenopprette opprinnelig snarvei",
+          "set": "Kunne ikke sette snarvei: {{error}}",
+          "reset": "Kunne ikke tilbakestille snarvei"
+        }
+      },
+      "language": {
+        "title": "Språk",
+        "description": "Velg språk for talegjenkjenning. Auto oppdager språket automatisk, mens et spesifikt språkvalg kan gi bedre nøyaktighet.",
+        "auto": "Auto"
+      },
+      "shortcutActivation": {
+        "title": "Snarveisoppførsel",
+        "options": {
+          "holdOrToggle": "Hold eller trykk",
+          "pushToTalk": "Hold inne",
+          "toggle": "Av/på"
+        },
+        "descriptions": {
+          "hold_or_toggle": "Hold tasten for å ta opp og slipp for å stoppe, eller trykk kjapt for å fortsette opptaket til du trykker igjen.",
+          "push_to_talk": "Hold tasten for å ta opp, slipp for å stoppe.",
+          "toggle": "Trykk for å starte, trykk igjen for å stoppe."
+        }
+      },
+      "holdThreshold": {
+        "title": "Holdeterskel",
+        "description": "Et tastetrykk som holdes minst så lenge regnes som å holde inne. Kortere blir et kjapt trykk som lar opptaket fortsette."
+      }
+    },
+    "appearance": {
+      "title": "Utseende"
+    },
+    "models": {
+      "searchPlaceholder": "Søk modeller etter navn …",
+      "yourModels": "Nedlastede modeller",
+      "availableModels": "Tilgjengelig for nedlasting",
+      "deleteConfirm": "Er du sikker på at du vil slette {{modelName}}? Du må laste den ned på nytt for å bruke den.",
+      "deleteActiveConfirm": "{{modelName}} er din aktive modell. Hvis du sletter den, stopper transkripsjonene til du velger en ny. Er du sikker?",
+      "deleteTitle": "Slett modell",
+      "filters": {},
+      "rescan": {
+        "tooltip": "Se etter modeller lagt til utenfor Kandy (i modell-mappa eller Hugging Face-cache)"
+      },
+      "noModelsMatch": "Ingen modeller matcher dette filteret."
+    },
+    "sound": {
+      "title": "Lyd",
+      "microphone": {
+        "title": "Mikrofon",
+        "description": "Velg foretrukket mikrofon",
+        "placeholder": "Velg mikrofon …",
+        "loading": "Laster …"
+      },
+      "channel": {
+        "title": "Innkanal",
+        "description": "Velg hvilken innkanal du vil ta opp fra. Bruk denne hvis lydgrensesnittet ditt har flere innganger.",
+        "average": "Snitt av alle kanaler",
+        "channel": "Kanal {{n}}"
+      },
+      "audioFeedback": {
+        "label": "Lydtilbakemelding",
+        "description": "Spill av lyd når opptak starter og stopper"
+      },
+      "outputDevice": {
+        "title": "Utenhet",
+        "description": "Velg foretrukket utenhet for lydtilbakemelding",
+        "placeholder": "Velg utenhet …",
+        "loading": "Laster …"
+      },
+      "volume": {
+        "title": "Volum",
+        "description": "Juster volum på lydtilbakemelding"
+      }
+    },
+    "advanced": {
+      "groups": {
+        "app": "App",
+        "output": "Output",
+        "transcription": "Transkripsjon",
+        "data": "Slett data"
+      },
+      "autostart": {
+        "label": "Start ved innlogging",
+        "description": "Start Kandy automatisk når du logger inn."
+      },
+      "overlay": {
+        "style": {
+          "title": "Opptaksoverlay",
+          "description": "Vis en liten pille på skjermen mens du tar opp og transkriberer."
+        },
+        "position": {
+          "title": "Overlay-posisjon",
+          "description": "Hvor overlayet vises på skjermen under opptak og transkripsjon.",
+          "options": {
+            "bottom": "Nederst",
+            "top": "Øverst"
+          }
+        }
+      },
+      "pasteMethod": {
+        "title": "Innlimingsmetode",
+        "description": "Velg hvordan tekst settes inn. Direkte: simulerer tastetrykk. Ingen: hopper over innliming, oppdaterer kun historikk/utklippstavle.",
+        "options": {
+          "clipboard": "Utklippstavle ({{modifier}}+V)",
+          "direct": "Direkte",
+          "none": "Ingen"
+        }
+      },
+      "autoSubmit": {
+        "title": "Auto-send",
+        "description": "Send automatisk valgt tastekombinasjon etter tekstinnsetting. Cmd+Enter på macOS.",
+        "options": {
+          "off": "Av",
+          "enter": "Enter",
+          "cmdEnter": "Cmd+Enter",
+          "superEnter": "Super+Enter",
+          "ctrlEnter": "Ctrl+Enter"
+        }
+      },
+      "customWords": {
+        "title": "Egendefinerte ord",
+        "description": "Hjelp modeller kjenne igjen navn og fagord. Uklar-korrigering er foreløpig begrenset til ord med A–Z og tall.",
+        "placeholder": "Legg til et ord",
+        "add": "Legg til",
+        "remove": "Fjern {{word}}",
+        "duplicate": "«{{word}}» finnes allerede"
+      },
+      "voiceActivityDetection": {
+        "title": "Stemmegjenkjenning (VAD)",
+        "description": "Filtrer bort stillhet fra opptak. Strømmemodeller bruker lengre VAD-hale; skru av VAD for rå lyd."
+      },
+      "fillerWordRemoval": {
+        "title": "Fjern fyllord",
+        "description": "Fjern vanlige nølord fra transkripsjoner. Skru av for å beholde dem."
+      },
+      "deleteData": {
+        "action": "Slett",
+        "cancel": "Avbryt",
+        "confirm": "Slett",
+        "deleting": "Sletter …",
+        "warning": "Dette kan ikke angres.",
+        "empty": "Ingenting å slette.",
+        "error": "Kunne ikke slette. Prøv igjen.",
+        "meetingsDeleted_one": "Slettet {{count}} møte",
+        "meetingsDeleted_other": "Slettet {{count}} møter",
+        "history": {
+          "title": "Slett all historikk",
+          "description": "Fjerner alle transkripsjoner og lydfilene, også stjernemerkede oppføringer.",
+          "confirmTitle": "Slette all historikk?",
+          "confirmBody_one": "Dette fjerner {{count}} oppføring og lydfilen, også stjernemerkede.",
+          "confirmBody_other": "Dette fjerner alle {{count}} oppføringer og lydfilene, også stjernemerkede."
+        },
+        "meetings": {
+          "title": "Slett alle møter",
+          "description": "Fjerner alle møter med opptak, transkripsjon og referat.",
+          "confirmTitle": "Slette alle møter?",
+          "confirmBody_one": "Dette fjerner {{count}} møte med opptak, transkripsjon og referat.",
+          "confirmBody_other": "Dette fjerner alle {{count}} møter med opptak, transkripsjon og referat."
+        }
+      },
+      "vadBackend": {
+        "title": "VAD-motor",
+        "description": "Hvilken detektor som fjerner stillhet. Silero er standardvalget, Earshot er eksperimentell.",
+        "options": {
+          "silero": "Silero",
+          "earshot": "Earshot (eksperimentell)"
+        }
+      }
+    },
+    "postProcessing": {
+      "groups": {
+        "behaviour": "Oppførsel",
+        "llm": "Språkmodell"
+      },
+      "auto": {
+        "title": "Etterbehandle automatisk",
+        "description": "Send hver diktering gjennom språkmodellen før den limes inn."
+      },
+      "noKey": "Ingen API-nøkkel satt. Dikteringer limes inn som de er transkribert. Legg inn en nøkkel under Modeller.",
+      "prompt": {
+        "title": "Prompt",
+        "description": "Instruksjonene modellen følger når den rydder opp i en diktering. Transkripsjonen sendes som brukermelding."
+      }
+    },
+    "history": {
+      "openFolder": "Åpne opptaksmappe",
+      "loading": "Laster historikk …",
+      "empty": "Ingen transkripsjoner ennå. Start opptak for å bygge historikk.",
+      "copyToClipboard": "Kopier transkripsjon til utklippstavle",
+      "copyError": "Kunne ikke kopiere til utklippstavlen. Prøv igjen.",
+      "save": "Lagre transkripsjon",
+      "unsave": "Fjern fra lagrede",
+      "delete": "Slett oppføring",
+      "deleteError": "Kunne ikke slette oppføring. Prøv igjen.",
+      "retranscribe": "Transkribér på nytt",
+      "retranscribeError": "Kunne ikke transkribere på nytt. Prøv igjen.",
+      "transcribing": "Transkriberer …",
+      "transcriptionFailed": "Transkripsjon feilet. Du kan prøve på nytt med retry-ikonet.",
+      "deletedCount_one": "Slettet {{count}} oppføring",
+      "deletedCount_other": "Slettet {{count}} oppføringer",
+      "deleteSelectedTitle": "Slette valgte oppføringer?",
+      "deleteSelectedDescription_one": "Dette fjerner {{count}} oppføring og lydfilen.",
+      "deleteSelectedDescription_other": "Dette fjerner {{count}} oppføringer og lydfilene.",
+      "cancel": "Avbryt",
+      "deleting": "Sletter…",
+      "confirmDelete_one": "Slett {{count}} oppføring",
+      "confirmDelete_other": "Slett {{count}} oppføringer",
+      "deleteWarning": "Dette kan ikke angres.",
+      "onlyStarredSelected": "Bare stjernemerkede oppføringer er valgt. Huk av over for å ta dem med.",
+      "starredWarning_one": "{{count}} stjernemerket oppføring er med i utvalget.",
+      "starredWarning_other": "{{count}} stjernemerkede oppføringer er med i utvalget.",
+      "includeStarred_one": "Slett også den stjernemerkede oppføringen",
+      "includeStarred_other": "Slett også de {{count}} stjernemerkede oppføringene",
+      "selectNone": "Velg ingen",
+      "selectAllLoaded": "Velg alle lastede",
+      "selectedOfLoadedPartial": "{{selected}} av {{loaded}} lastede valgt (flere i historikken)",
+      "selectedOfLoaded": "{{selected}} av {{loaded}} valgt",
+      "exportSelectionTitle_one": "{{count}} transkripsjon",
+      "exportSelectionTitle_other": "{{count}} transkripsjoner",
+      "clearSelection": "Tøm utvalg",
+      "deleteSelected_one": "Slett {{count}}",
+      "deleteSelected_other": "Slett {{count}}",
+      "editTranscript": "Rediger transkripsjon",
+      "editedBadge": "Redigert",
+      "exportDocTitle": "Transkripsjon",
+      "transcript": "Transkripsjon",
+      "expandTranscript": "Vis hele transkripsjonen"
+    },
+    "debug": {
+      "logDirectory": {
+        "title": "Log-mappe",
+        "description": "Hvor loggfiler lagres"
+      },
+      "muteWhileRecording": {
+        "label": "Demp under opptak",
+        "description": "Demp systemlyd under opptak"
+      }
+    },
+    "about": {
+      "title": "Om",
+      "privacy": {
+        "title": "Personvern",
+        "intro": "Kandy behandler lyd lokalt. Stemmen din forlater aldri maskinen din.",
+        "localTitle": "Blir værende på maskinen",
+        "localPoints": [
+          "Lyd fra mikrofonen. Ingen strømming til nettet.",
+          "Transkripsjoner lagres i en lokal SQLite-database.",
+          "Møteopptak lagres som WAV-filer i app-data-mappa.",
+          "Whisper og VAD kjører på GPU-en din."
+        ],
+        "cloudTitle": "Går ut av maskinen",
+        "cloudPoints": [
+          "Kun transkribert tekst, og kun når du ber om sammendrag.",
+          "Teksten sendes til Kantega LLM-proxy over HTTPS.",
+          "Kantega drifter LLM-proxyen selv.",
+          "Proxyen bruker kun modeller som hostes i Europa."
+        ],
+        "controlTitle": "Slik styrer du dataene",
+        "controlPoints": [
+          "Slett enkeltmøter og transkripsjoner via historikk-fanen.",
+          "Slett hele app-data-mappa for å nullstille alt.",
+          "Fjern LLM-proxy-nøkkelen for å skru av sammendrag.",
+          "Slett appen for å fjerne alle spor fra maskinen."
+        ],
+        "noTelemetryTitle": "Ingen telemetri",
+        "noTelemetryBody": "Kandy sender ingen bruksstatistikk, feilrapporter eller identifikatorer til Kantega eller andre. Ingen konto, ingen innlogging, ingen sporing."
+      },
+      "version": {
+        "title": "Versjon",
+        "description": "Nåværende versjon av Kandy"
+      },
+      "appDataDirectory": {
+        "title": "App-data-mappe",
+        "description": "Hvor Kandy lagrer data"
+      },
+      "acknowledgments": {
+        "title": "Anerkjennelser",
+        "ggml": {
+          "title": "ggml",
+          "description": "Høyytelses tensor-bibliotek for maskinlæring på enheten",
+          "details": "Kandys lokale tale-til-tekst er bygget på transcribe.cpp og ggml. Takk til Georgi Gerganov og bidragsyterne for det fantastiske arbeidet."
+        }
+      }
+    },
+    "llm": {
+      "apiKey": {
+        "title": "Kantega LLM-proxy API-nøkkel",
+        "description": "Én nøkkel som deles av etterbehandling og møtereferat. Lagres lokalt og kryptert; sendes kun som auth-header til Kantega-proxyen.",
+        "descriptionSet": "En nøkkel er lagret. Lim inn en ny for å bytte, eller fjern den for å skru av etterbehandling og referat.",
+        "placeholder": "Lim inn nøkkelen din …",
+        "placeholderSet": "Nøkkel satt — lim inn en ny for å bytte",
+        "remove": "Fjern",
+        "removed": "Nøkkelen er fjernet — etterbehandling og referat er av",
+        "saveFailed": "Kunne ikke lagre nøkkelen"
+      },
+      "sectionTitle": "Språkmodell (Kantega LLM-proxy)",
+      "model": {
+        "title": "Modell",
+        "description": "Fullt modellnavn på Kantega LLM-proxyen, for eksempel vertex_ai/claude-sonnet-4-6."
+      }
+    }
+  },
+  "common": {
+    "delete": "Slett",
+    "open": "Åpne",
+    "noOptionsFound": "Ingen alternativer funnet",
+    "unknownSize": "Ukjent størrelse",
+    "selectOption": "Velg et alternativ…",
+    "save": "Lagre",
+    "resetToDefault": "Tilbakestill til standard",
+    "saved": "Lagret"
+  },
+  "accessibility": {
+    "permissionsDescription": "Kandy trenger tilgjengelighets-tillatelse for å skrive inn transkribert tekst.",
+    "openSettings": "Åpne Systeminnstillinger"
+  },
+  "errors": {
+    "loadDirectory": "Feil ved lasting av mappe: {{error}}",
+    "micPermissionDeniedTitle": "Mikrofontilgang nektet",
+    "micPermissionDenied": {
+      "generic": "Mikrofontilgang ble nektet av operativsystemet. Gi mikrofon-tillatelse i systeminnstillingene.",
+      "macos": "Gi mikrofontilgang i Systeminnstillinger → Personvern og sikkerhet → Mikrofon."
+    },
+    "noInputDeviceTitle": "Ingen mikrofon funnet",
+    "noInputDevice": "Fant ingen lydinnenhet. Koble til en mikrofon eller et headset og prøv igjen.",
+    "recordingFailed": "Kunne ikke starte opptak: {{error}}",
+    "modelLoadFailed": "Kunne ikke laste modell: {{model}}",
+    "modelLoadFailedUnknown": "ukjent modell",
+    "pasteFailedTitle": "Kunne ikke lime inn tekst",
+    "pasteFailed": "Teksten kunne ikke limes inn i aktiv applikasjon.",
+    "transcriptionFailedTitle": "Transkripsjon feilet"
+  },
+  "appLanguage": {
+    "title": "Språk i appen",
+    "description": "Endre språket i Kandy-grensesnittet"
+  },
+  "theme": {
+    "title": "Utseende",
+    "description": "Velg om Kandy følger systemet, eller alltid er lyst eller mørkt",
+    "options": {
+      "system": "System",
+      "light": "Lyst",
+      "dark": "Mørkt"
+    }
+  },
+  "overlay": {
+    "transcribing": "Transkriberer …",
+    "processing": "Behandler …",
+    "cancel": "Avbryt"
+  },
+  "secureInput": {
+    "blockedWithCulprit_one": "{{name}} kan blokkere 1 snarvei",
+    "blockedWithCulprit_other": "{{name}} kan blokkere {{count}} snarveier",
+    "blockedNoCulprit_one": "macOS blokkerer midlertidig 1 snarvei",
+    "blockedNoCulprit_other": "macOS blokkerer midlertidig {{count}} snarveier",
+    "recorderBlockedWithCulprit": "{{name}} kan blokkere endring av snarveier",
+    "recorderBlockedNoCulprit": "macOS blokkerer midlertidig endring av snarveier",
+    "learnMore": "Slik løser du det",
+    "recorderBlocked": "Kan ikke ta opp snarveier nå — macOS Secure Input blokkerer tastehendelser. Løs Secure Input-advarselen først.",
+    "dismiss": "Lukk"
+  },
+  "meeting": {
+    "record": "Start opptak",
+    "upload": "Last opp lyd",
+    "stop": "Stopp og transkribér",
+    "transcribing": "Transkriberer …",
+    "summarizing": "Genererer sammendrag …",
+    "noKey": "Ingen LLM-proxy-nøkkel. Møter transkriberes, men det lages ikke referat. Legg inn en nøkkel under Modeller.",
+    "pastMeetings": "Tidligere møter",
+    "empty": "Ingen møter ennå. Start et opptak over.",
+    "noTranscript": "Ingen transkripsjon.",
+    "generateSummary": "Lag referat",
+    "regenerate": "Generer referatet på nytt",
+    "copySummary": "Kopier sammendrag",
+    "copyTranscript": "Kopier transkripsjon",
+    "delete": "Slett møte",
+    "addKeyHint": "Legg inn API-nøkkel under Modeller",
+    "customPrompt": {
+      "title": "Prompt for dette møtet",
+      "help": "Gjelder bare dette møtet, og lagres sammen med det.",
+      "reset": "Bruk standard",
+      "run": "Oppsummer med dette promptet"
+    },
+    "disclaimer": "KI-generert med {{model}}. Et utgangspunkt for gjennomgang, ikke et ordrett referat.",
+    "settings": {
+      "title": "Innstillinger for referat",
+      "prompt": "Sammendrags-prompt (norsk)",
+      "autoSummarize": "Lag referat automatisk",
+      "autoSummarizeHelp": "Lag referat av hvert møte rett etter transkribering. Når dette er av, bruker du «Lag referat» på møtet.",
+      "promptHelp": "Instruksjonene modellen følger når den skriver referat. Transkripsjonen sendes som brukermelding.",
+      "autoTitle": "Gi møter tittel automatisk",
+      "autoTitleHelp": "Etter referatet foreslår språkmodellen en kort tittel. En tittel du har skrevet selv blir aldri erstattet."
+    },
+    "errors": {
+      "startFailed": "Kunne ikke starte opptak",
+      "transcribeFailed": "Transkripsjon feilet",
+      "summaryFailed": "Kunne ikke generere sammendrag",
+      "deleteFailed": "Kunne ikke slette møte",
+      "decodeFailed": "Klarte ikke å lese lydfila",
+      "decodeFailedHint": "«{{file}}» er skadet, tom, eller i et format Kandy ikke kan dekode.",
+      "unsupportedFile_one": "1 fil ble hoppet over",
+      "unsupportedFile_other": "{{count}} filer ble hoppet over",
+      "unsupportedFileHint": "Kandy leser disse formatene: {{formats}}.",
+      "audioSaveFailed": "Klarte ikke å lagre opptaket"
+    },
+    "audioFiles": "Lydfiler",
+    "dropActive": "Slipp for å transkribere",
+    "queued": "Transkriberer {{count}} filer, én etter én.",
+    "downloadAudio": "Last ned opptak",
+    "audioSaved": "Opptaket er lagret",
+    "recording": "Tar opp",
+    "hint": "Tar opp fra valgt innenhet og transkriberer lokalt med Whisper. Slipp lydfiler hvor som helst på denne fanen.",
+    "expand": "Vis møte",
+    "collapse": "Skjul møte",
+    "search": {
+      "label": "Søk i møter",
+      "placeholder": "Søk i tittel, referat og transkripsjon …",
+      "clear": "Tøm søk",
+      "count": "{{shown}} av {{total}} møter",
+      "noMatches": "Ingen møter matcher «{{query}}»."
+    },
+    "sections": {
+      "summary": "Referat",
+      "transcript": "Transkripsjon"
+    },
+    "deleteDialog": {
+      "title": "Slette møtet?",
+      "description": "Opptaket, transkripsjonen og referatet fjernes permanent.",
+      "confirm": "Slett",
+      "cancel": "Avbryt"
+    }
+  },
+  "export": {
+    "label": "Eksporter",
+    "asWord": "Eksporter som Word",
+    "asPdf": "Eksporter som PDF",
+    "saved": "Eksportert",
+    "errors": {
+      "failed": "Eksporten feilet"
+    },
+    "edit": {
+      "save": "Lagre",
+      "saving": "Lagrer …",
+      "cancel": "Avbryt",
+      "empty": "Ingenting her ennå.",
+      "hint": "Cmd/Ctrl + Enter lagrer · Esc avbryter",
+      "saveFailed": "Kunne ikke lagre endringene",
+      "editSummary": "Rediger sammendrag",
+      "editTranscript": "Rediger transkripsjon",
+      "editTitle": "Rediger tittel"
+    }
+  },
+  "audioPlayer": {
+    "play": "Spill av",
+    "pause": "Pause"
+  }
+}

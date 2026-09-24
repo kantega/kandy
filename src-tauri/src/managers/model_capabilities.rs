@@ -1,20 +1,13 @@
-//! Model capability probing — the seam between Handy's model UI and "what can
+//! Model capability probing — the seam between Kandy's model UI and "what can
 //! this GGUF actually do".
 //!
 //! Capabilities are canonical *in the GGUF itself*: transcribe-cpp reads them
 //! from the model's metadata at load time, and the runtime reconciles the
-//! registry against that ground truth once a model is loaded — streaming,
-//! translation, language detection, and the supported-language set (see
+//! registry against that ground truth once a model is loaded (language
+//! detection and the supported-language set, see
 //! [`crate::managers::model::ModelManager::set_runtime_capabilities`]). This
-//! module covers the other half — reading the same values from the GGUF header
-//! *before* download, so search/listing can show them honestly ahead of a load.
-//!
-//! Everything goes through the [`CapabilityProber`] trait. Today the only
-//! implementation, [`GgufHeaderProber`], parses a local GGUF's header directly
-//! via [`crate::managers::gguf_meta`]. If transcribe-cpp later exposes a
-//! metadata-only probe (covering parakeet-style *inferred* streaming and legacy
-//! `.bin`), a `TranscribeCppProber` can be dropped in behind this same trait
-//! without touching any caller.
+//! module reads the same values from the GGUF header *before* a load, via
+//! [`crate::managers::gguf_meta`], so listing can show them ahead of time.
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -22,53 +15,21 @@ use std::path::Path;
 
 use super::gguf_meta::{self, GgufError, GgufMetadata};
 
-/// Architecture strings transcribe-cpp can load — the `.name` of each arch under
-/// its `src/arch/`, which is exactly the value stored in `general.architecture`.
-/// Keep this in sync with transcribe-cpp; an arch absent here still parses, it's
-/// just surfaced as [`Compatibility::MaybeIncompatible`] rather than promised.
-pub const KNOWN_ARCHES: &[&str] = &[
-    "whisper",
-    "parakeet",
-    "qwen3_asr",
-    "voxtral",
-    "voxtral_realtime",
-    "cohere",
-    "cohere_asr",
-    "canary",
-    "canary_qwen",
-    "moonshine",
-    "moonshine_streaming",
-    "sensevoice",
-    "gigaam",
-    "granite",
-    "granite_speech",
-    "granite_nar",
-    "granite_speech_nar",
-    "funasr_nano",
-    "medasr",
-    "moss",
-    "sortformer",
-];
+/// Architectures Kandy ships support for — the value stored in
+/// `general.architecture`. Kandy is Whisper-only (Norwegian is only covered by
+/// the Whisper family), so anything else is surfaced as
+/// [`Compatibility::MaybeIncompatible`] and never offered by local discovery.
+/// transcribe-cpp itself can load more archs; that is deliberately not exposed.
+pub const KNOWN_ARCHES: &[&str] = &["whisper"];
 
 // GGUF metadata keys transcribe-cpp writes for ASR models.
 const KEY_ARCH: &str = "general.architecture";
 const KEY_NAME: &str = "general.name";
-const KEY_VARIANT: &str = "stt.variant";
 const KEY_LANGUAGES: &str = "general.languages";
-const KEY_CAP_STREAMING: &str = "stt.capability.streaming";
-const KEY_CAP_TRANSLATE: &str = "stt.capability.translate";
 const KEY_CAP_LANG_DETECT: &str = "stt.capability.lang_detect";
-const PROBE_KEYS: &[&str] = &[
-    KEY_ARCH,
-    KEY_NAME,
-    KEY_VARIANT,
-    KEY_LANGUAGES,
-    KEY_CAP_STREAMING,
-    KEY_CAP_TRANSLATE,
-    KEY_CAP_LANG_DETECT,
-];
+const PROBE_KEYS: &[&str] = &[KEY_ARCH, KEY_NAME, KEY_LANGUAGES, KEY_CAP_LANG_DETECT];
 
-/// How confident we are that Handy can run a given model, judged from its GGUF
+/// How confident we are that Kandy can run a given model, judged from its GGUF
 /// header alone (pre-download).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
@@ -86,7 +47,7 @@ pub enum Compatibility {
 
 /// Capabilities surfaced in the model UI. Every field is optional on purpose:
 /// `None` means "not known yet" — a community model whose header omits the key,
-/// or a field (parakeet streaming) the header parse can't determine. The UI
+/// or a field the header parse can't determine. The UI
 /// renders that honestly as unknown, and the runtime fills it in for real once
 /// the model is loaded.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
@@ -96,15 +57,9 @@ pub struct CapabilityProbe {
     pub display_name: Option<String>,
     /// `general.architecture`, when present.
     pub architecture: Option<String>,
-    /// `stt.variant`, when present.
-    pub variant: Option<String>,
-    /// `general.languages` — transcribable language codes.
+    /// `general.languages`: transcribable language codes.
     pub languages: Option<Vec<String>>,
-    /// `stt.capability.streaming` — native live-streaming support.
-    pub supports_streaming: Option<bool>,
-    /// `stt.capability.translate` — translation to English.
-    pub supports_translation: Option<bool>,
-    /// `stt.capability.lang_detect` — automatic language detection.
+    /// `stt.capability.lang_detect`: automatic language detection.
     pub supports_language_detect: Option<bool>,
 }
 
@@ -117,12 +72,8 @@ impl CapabilityProbe {
         }
     }
 
-    /// Build a probe from parsed GGUF metadata.
-    ///
-    /// Streaming for the parakeet family is *inferred* by transcribe-cpp's
-    /// native loader from encoder hparams rather than a flat bool, so when the
-    /// explicit `stt.capability.streaming` key is absent we leave it `None`
-    /// (unknown) and let post-load reconciliation settle it — we never guess.
+    /// Build a probe from parsed GGUF metadata. An absent key stays `None`
+    /// (unknown) and post-load reconciliation settles it; nothing is guessed.
     pub fn from_metadata(meta: &GgufMetadata) -> Self {
         let architecture = meta.get_str(KEY_ARCH).map(str::to_string);
         let verdict = match architecture.as_deref() {
@@ -133,33 +84,17 @@ impl CapabilityProbe {
             verdict,
             display_name: meta.get_str(KEY_NAME).map(str::to_string),
             architecture,
-            variant: meta.get_str(KEY_VARIANT).map(str::to_string),
             languages: meta.get_string_array(KEY_LANGUAGES),
-            supports_streaming: meta.get_bool(KEY_CAP_STREAMING),
-            supports_translation: meta.get_bool(KEY_CAP_TRANSLATE),
             supports_language_detect: meta.get_bool(KEY_CAP_LANG_DETECT),
         }
     }
 }
 
-/// Reads model capabilities from a local GGUF's header. See the module docs for
-/// the substitution story (`GgufHeaderProber` now, a transcribe-cpp-backed
-/// prober later).
-pub trait CapabilityProber: Send + Sync {
-    /// Probe a GGUF already on disk (custom-dir + HF-cache scans, post-download).
-    fn probe_file(&self, path: &Path) -> CapabilityProbe;
-}
-
-/// Pure-Rust prober backed by [`crate::managers::gguf_meta`]. The default and,
-/// for the foreseeable future, only implementation.
-pub struct GgufHeaderProber;
-
-impl CapabilityProber for GgufHeaderProber {
-    fn probe_file(&self, path: &Path) -> CapabilityProbe {
-        match read_header_metadata(path) {
-            Ok(meta) => CapabilityProbe::from_metadata(&meta),
-            Err(_) => CapabilityProbe::unsupported(),
-        }
+/// Probe a GGUF already on disk (custom-dir + HF-cache scans).
+pub fn probe_gguf_file(path: &Path) -> CapabilityProbe {
+    match read_header_metadata(path) {
+        Ok(meta) => CapabilityProbe::from_metadata(&meta),
+        Err(_) => CapabilityProbe::unsupported(),
     }
 }
 
@@ -232,12 +167,8 @@ mod tests {
     #[test]
     fn known_arch_is_compatible_and_reads_caps() {
         let meta = meta_with(vec![
-            ("general.architecture", GgufValue::String("parakeet".into())),
-            (
-                "general.name",
-                GgufValue::String("Parakeet Unified EN 0.6B".into()),
-            ),
-            ("stt.capability.streaming", GgufValue::Bool(true)),
+            ("general.architecture", GgufValue::String("whisper".into())),
+            ("general.name", GgufValue::String("Whisper Small".into())),
             (
                 "general.languages",
                 GgufValue::Array(vec![GgufValue::String("en".into())]),
@@ -245,15 +176,11 @@ mod tests {
         ]);
         let probe = CapabilityProbe::from_metadata(&meta);
         assert_eq!(probe.verdict, Compatibility::Compatible);
-        assert_eq!(
-            probe.display_name.as_deref(),
-            Some("Parakeet Unified EN 0.6B")
-        );
-        assert_eq!(probe.architecture.as_deref(), Some("parakeet"));
-        assert_eq!(probe.supports_streaming, Some(true));
+        assert_eq!(probe.display_name.as_deref(), Some("Whisper Small"));
+        assert_eq!(probe.architecture.as_deref(), Some("whisper"));
         assert_eq!(probe.languages, Some(vec!["en".to_string()]));
         // Absent key stays unknown rather than defaulting to false.
-        assert_eq!(probe.supports_translation, None);
+        assert_eq!(probe.supports_language_detect, None);
     }
 
     #[test]
@@ -266,5 +193,28 @@ mod tests {
             CapabilityProbe::from_metadata(&meta).verdict,
             Compatibility::MaybeIncompatible
         );
+    }
+
+    /// Kandy is Whisper-only: a non-Whisper ASR arch transcribe-cpp could
+    /// otherwise load must not be promised as compatible.
+    #[test]
+    fn non_whisper_asr_arch_is_not_promised() {
+        for arch in [
+            "parakeet",
+            "moonshine",
+            "sensevoice",
+            "voxtral",
+            "qwen3_asr",
+        ] {
+            let meta = meta_with(vec![(
+                "general.architecture",
+                GgufValue::String(arch.into()),
+            )]);
+            assert_eq!(
+                CapabilityProbe::from_metadata(&meta).verdict,
+                Compatibility::MaybeIncompatible,
+                "{arch} must not be surfaced as compatible"
+            );
+        }
     }
 }

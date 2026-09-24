@@ -13,8 +13,10 @@ export const Input: React.FC<InputProps> = ({
   const baseClasses =
     "px-2 py-1 text-sm font-semibold bg-mid-gray/10 border border-mid-gray/80 rounded-md text-start transition-all duration-150";
 
+  // Disabled dims the border, not the text: a 60%-opacity value is unreadable
+  // on both surfaces, and WCAG only exempts the *control*, not its content.
   const interactiveClasses = disabled
-    ? "opacity-60 cursor-not-allowed bg-mid-gray/10 border-mid-gray/40"
+    ? "cursor-not-allowed text-mid-gray border-mid-gray/40"
     : "hover:bg-logo-primary/10 hover:border-logo-primary focus:outline-none focus:bg-logo-primary/20 focus:border-logo-primary";
 
   const variantClasses = {

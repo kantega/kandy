@@ -1,13 +1,7 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import { locale } from "@tauri-apps/plugin-os";
 import { LANGUAGE_METADATA } from "./languages";
 import { commands } from "@/bindings";
-import {
-  getLanguageDirection,
-  updateDocumentDirection,
-  updateDocumentLanguage,
-} from "@/lib/utils/rtl";
 
 // Auto-discover translation files using Vite's glob import
 const localeModules = import.meta.glob<{ default: Record<string, unknown> }>(
@@ -51,45 +45,32 @@ export const SUPPORTED_LANGUAGES = Object.keys(resources)
 
 export type SupportedLanguageCode = string;
 
-// Check if a language code is supported
+// Check if a language code is supported. Kandy only ships nb and en, so we
+// try the exact code first, then the bare language subtag ("nb-NO" → "nb").
 export const getSupportedLanguage = (
   langCode: string | null | undefined,
 ): SupportedLanguageCode | null => {
   if (!langCode) return null;
 
   const normalized = langCode.toLowerCase().replace(/_/g, "-");
-  const subtags = normalized.split("-");
-  const language = subtags[0];
-  const isHant = subtags.includes("hant");
-  const isHans = subtags.includes("hans");
-  const isTraditionalRegion = ["tw", "hk", "mo"].some((region) =>
-    subtags.includes(region),
-  );
+  const language = normalized.split("-")[0];
 
-  // Try exact match first
-  let supported = SUPPORTED_LANGUAGES.find(
+  const exact = SUPPORTED_LANGUAGES.find(
     (lang) => lang.code.toLowerCase() === normalized,
   );
-  if (!supported) {
-    let fallback = language;
-    if (language === "zh" && (isHant || (!isHans && isTraditionalRegion))) {
-      fallback = "zh-tw";
-    } else if (language === "yue") {
-      // Cantonese uses Traditional Chinese unless explicitly tagged as Hans.
-      fallback = isHans ? "zh" : "zh-tw";
-    }
-    supported = SUPPORTED_LANGUAGES.find(
-      (lang) => lang.code.toLowerCase() === fallback,
-    );
-  }
-  return supported ? supported.code : null;
+  if (exact) return exact.code;
+
+  const base = SUPPORTED_LANGUAGES.find(
+    (lang) => lang.code.toLowerCase() === language,
+  );
+  return base ? base.code : null;
 };
 
-// Initialize i18n with English as default
-// Language will be synced from settings after init
+// Initialize i18n with Norwegian as default (Kandy is a Kantega project).
+// Language will be synced from settings after init.
 i18n.use(initReactI18next).init({
   resources,
-  lng: "en",
+  lng: "nb",
   fallbackLng: "en",
   interpolation: {
     escapeValue: false, // React already escapes values
@@ -99,7 +80,10 @@ i18n.use(initReactI18next).init({
   },
 });
 
-// Sync language from app settings
+// Sync language from app settings. If the user has explicitly picked a
+// language it wins; otherwise stay on Norwegian (the Kandy default) rather
+// than following system locale — Kantega-branded product ships Norwegian by
+// default, and English is the fallback only when nb-keys are missing.
 export const syncLanguageFromSettings = async () => {
   try {
     const result = await commands.getAppSettings();
@@ -108,14 +92,8 @@ export const syncLanguageFromSettings = async () => {
       if (supported && supported !== i18n.language) {
         await i18n.changeLanguage(supported);
       }
-    } else {
-      // Fall back to system locale detection if no saved preference
-      const systemLocale = await locale();
-      const supported = getSupportedLanguage(systemLocale);
-      if (supported && supported !== i18n.language) {
-        await i18n.changeLanguage(supported);
-      }
     }
+    // No else: leave the language at the init default ("nb").
   } catch (e) {
     console.warn("Failed to sync language from settings:", e);
   }
@@ -124,14 +102,9 @@ export const syncLanguageFromSettings = async () => {
 // Run language sync on init
 syncLanguageFromSettings();
 
-// Listen for language changes to update HTML dir and lang attributes
+// Keep the document's lang attribute in step with the UI language.
 i18n.on("languageChanged", (lng) => {
-  const dir = getLanguageDirection(lng);
-  updateDocumentDirection(dir);
-  updateDocumentLanguage(lng);
+  document.documentElement.setAttribute("lang", lng);
 });
-
-// Re-export RTL utilities for convenience
-export { getLanguageDirection, isRTLLanguage } from "@/lib/utils/rtl";
 
 export default i18n;

@@ -1,9 +1,13 @@
 export { Dropdown } from "./Dropdown";
 export { Dialog } from "./Dialog";
+export { EditableText } from "./EditableText";
+export { ExportMenu } from "./ExportMenu";
 export { Slider } from "./Slider";
 export { ToggleSwitch } from "./ToggleSwitch";
 export { SettingContainer } from "./SettingContainer";
 export { SettingsGroup } from "./SettingsGroup";
-export { TextDisplay } from "./TextDisplay";
 export { Textarea } from "./Textarea";
-export { Tooltip } from "./Tooltip";
+export { Input } from "./Input";
+export { IconButton } from "./IconButton";
+export { useSavedHint } from "./SavedHint";
+export { Button } from "./Button";

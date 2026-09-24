@@ -1,7 +1,6 @@
 {
   "tray": {
     "settings": "Settings...",
-    "checkUpdates": "Check for Updates...",
     "copyLastTranscript": "Copy Last Transcript",
     "unloadModel": "Unload Model",
     "model": "Model",
@@ -15,8 +14,22 @@
     "advanced": "Advanced",
     "postProcessing": "Post Process",
     "history": "History",
-    "debug": "Debug",
-    "about": "About"
+    "about": "About",
+    "meeting": "Meeting",
+    "navLabel": "Settings sections",
+    "descriptions": {
+      "general": "Shortcut, microphone, sound and appearance for everyday dictation.",
+      "meeting": "Record or upload a meeting, get a transcript and a Norwegian summary.",
+      "history": "Everything you have dictated, with audio, searchable and exportable.",
+      "models": "Download and choose the Whisper model that does the transcription.",
+      "advanced": "Startup, overlay, output method and transcription tweaks.",
+      "postProcessing": "Clean up transcripts with a language model before pasting.",
+      "about": "Version, licenses and where to get help."
+    },
+    "groups": {
+      "use": "Use",
+      "configure": "Settings"
+    }
   },
   "onboarding": {
     "subtitle": "To get started, choose a transcription model",
@@ -46,54 +59,6 @@
       "large": {
         "name": "Whisper Large",
         "description": "Good accuracy, but slow."
-      },
-      "parakeet-tdt-0.6b-v2": {
-        "name": "Parakeet V2",
-        "description": "English only. The best model for English speakers."
-      },
-      "parakeet-tdt-0.6b-v3": {
-        "name": "Parakeet V3",
-        "description": "Fast and accurate"
-      },
-      "moonshine-base": {
-        "name": "Moonshine Base",
-        "description": "Very fast, English only. Handles accents well."
-      },
-      "moonshine-tiny-streaming-en": {
-        "name": "Moonshine V2 Tiny",
-        "description": "Ultra-fast, English only"
-      },
-      "moonshine-small-streaming-en": {
-        "name": "Moonshine V2 Small",
-        "description": "Fast, English only. Good balance of speed and accuracy."
-      },
-      "moonshine-medium-streaming-en": {
-        "name": "Moonshine V2 Medium",
-        "description": "English only. High quality."
-      },
-      "breeze-asr": {
-        "name": "Breeze ASR",
-        "description": "Optimized for Taiwanese Mandarin. Code-switching support."
-      },
-      "sense-voice-int8": {
-        "name": "SenseVoice",
-        "description": "Very fast. Chinese, English, Japanese, Korean, Cantonese."
-      },
-      "gigaam-v3-e2e-ctc": {
-        "name": "GigaAM v3",
-        "description": "Russian speech recognition. Fast and accurate."
-      },
-      "canary-180m-flash": {
-        "name": "Canary 180M Flash",
-        "description": "Very fast. English, German, Spanish, French. Supports translation."
-      },
-      "canary-1b-v2": {
-        "name": "Canary 1B v2",
-        "description": "Accurate multilingual. 25 European languages. Supports translation."
-      },
-      "cohere-int8": {
-        "name": "Cohere",
-        "description": "A large, slower, but very accurate multilingual model."
       }
     },
     "errors": {
@@ -101,7 +66,7 @@
     },
     "permissions": {
       "title": "Permissions Required",
-      "description": "Handy needs a couple of permissions to work properly.",
+      "description": "Kandy needs a couple of permissions to work properly.",
       "microphone": {
         "title": "Microphone Access",
         "description": "Required to hear your voice for transcription."
@@ -122,24 +87,10 @@
   },
   "modelSelector": {
     "custom": "Custom",
-    "legacy": "Legacy",
-    "streaming": "Streaming",
     "active": "Active",
     "switching": "Switching...",
-    "noModelsAvailable": "No models available",
-    "verifying": "Verifying {{modelName}}...",
     "verifyingGeneric": "Verifying...",
-    "extracting": "Extracting {{modelName}}...",
-    "extractingMultiple": "Extracting {{count}} models...",
-    "extractingGeneric": "Extracting...",
     "downloading": "Downloading {{percentage}}%",
-    "downloadingMultiple": "Downloading {{count}} models...",
-    "modelReady": "Model Ready",
-    "loading": "Loading {{modelName}}...",
-    "loadingGeneric": "Loading...",
-    "modelError": "Model Error",
-    "modelUnloaded": "Model Unloaded",
-    "noModelDownloadRequired": "No Model - Download Required",
     "deleteModel": "Delete {{modelName}}",
     "downloadSpeed": "{{speed}} MB/s",
     "cancel": "Cancel",
@@ -147,11 +98,10 @@
     "capabilities": {
       "languageSelection": "Supports multiple input languages",
       "singleLanguage": "Supports this language only",
-      "languageCount": "{{total}} languages",
-      "languageOnly": "{{language}} only",
-      "translation": "Can translate to English",
-      "translate": "Translate",
-      "streaming": "Shows live transcription as you speak"
+      "norwegianAndEnglish": "Norwegian and English",
+      "norwegianOnly": "Norwegian only",
+      "englishOnly": "English only",
+      "otherLanguages": "Neither Norwegian nor English"
     }
   },
   "settings": {
@@ -161,7 +111,7 @@
     "general": {
       "title": "General",
       "shortcut": {
-        "title": "Handy Shortcuts",
+        "title": "Kandy Shortcuts",
         "description": "Configure keyboard shortcuts to trigger speech-to-text recording",
         "loading": "Loading shortcuts...",
         "none": "No shortcuts configured",
@@ -190,32 +140,39 @@
       "language": {
         "title": "Language",
         "description": "Select the language for speech recognition. Auto will automatically determine the language, while selecting a specific language can improve accuracy for that language.",
-        "searchPlaceholder": "Search languages...",
-        "noResults": "No languages found",
         "auto": "Auto"
       },
-      "pushToTalk": {
-        "label": "Push To Talk",
-        "description": "Hold to record, release to stop"
+      "shortcutActivation": {
+        "title": "Shortcut behaviour",
+        "options": {
+          "holdOrToggle": "Hold or tap",
+          "pushToTalk": "Hold to talk",
+          "toggle": "Toggle"
+        },
+        "descriptions": {
+          "hold_or_toggle": "Hold the key to record and release to stop, or tap it to keep recording until you press again.",
+          "push_to_talk": "Hold the key to record, release to stop.",
+          "toggle": "Press to start, press again to stop."
+        }
+      },
+      "holdThreshold": {
+        "title": "Hold threshold",
+        "description": "A press held at least this long counts as holding. Anything shorter is a tap that keeps recording."
       }
     },
+    "appearance": {
+      "title": "Appearance"
+    },
     "models": {
-      "title": "Transcription Models",
-      "description": "Select a transcription model or download additional models. Different models offer varying levels of accuracy and speed.",
       "searchPlaceholder": "Search models by name…",
       "yourModels": "Downloaded Models",
       "availableModels": "Available to Download",
       "deleteConfirm": "Are you sure you want to delete {{modelName}}? You will need to download it again to use it.",
       "deleteActiveConfirm": "{{modelName}} is your active model. Deleting it will stop transcriptions until you select a new model. Are you sure?",
       "deleteTitle": "Delete Model",
-      "filters": {
-        "allLanguages": "All Languages",
-        "streaming": "Filter models that support live streaming transcription",
-        "translation": "Filter models that support translation to English"
-      },
+      "filters": {},
       "rescan": {
-        "label": "Rescan",
-        "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside Handy"
+        "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside Kandy"
       },
       "noModelsMatch": "No models match this filter."
     },
@@ -253,51 +210,16 @@
         "app": "App",
         "output": "Output",
         "transcription": "Transcription",
-        "history": "History",
-        "experimental": "Experimental"
-      },
-      "experimentalToggle": {
-        "label": "Experimental Features",
-        "description": "Enable experimental features that are still in development."
-      },
-      "lazyStreamClose": {
-        "label": "Keep Mic Open Between Transcriptions",
-        "description": "Keeps the microphone stream open for 30 seconds after recording stops, reducing latency for back-to-back transcriptions. May degrade Bluetooth audio quality while active."
-      },
-      "acceleration": {
-        "transcribe": {
-          "title": "transcribe.cpp Acceleration",
-          "description": "Hardware acceleration for transcribe.cpp (Whisper-family) models. Auto uses GPU if available (Metal on macOS, Vulkan on Windows/Linux)."
-        },
-        "ort": {
-          "title": "ONNX Acceleration",
-          "description": "Hardware acceleration for ONNX models (Parakeet, Canary, Moonshine, etc.). DirectML on Windows is experimental. Models may fail to transcribe."
-        },
-        "gpuDevice": {
-          "auto": "Auto"
-        }
-      },
-      "startHidden": {
-        "label": "Start Hidden",
-        "description": "Launch to system tray without opening the window."
+        "data": "Delete data"
       },
       "autostart": {
         "label": "Launch on Startup",
-        "description": "Automatically start Handy when you log in to your computer."
-      },
-      "showTrayIcon": {
-        "label": "Show Tray Icon",
-        "description": "Display the Handy icon in the system tray."
+        "description": "Automatically start Kandy when you log in to your computer."
       },
       "overlay": {
         "style": {
-          "title": "Overlay",
-          "description": "Choose the recording overlay: None hides it, Minimal shows a compact pill, Live shows transcription in real time as you speak (streaming-capable models only — look for the Streaming badge in the model picker). On Linux 'None' is recommended.",
-          "options": {
-            "none": "None",
-            "minimal": "Minimal",
-            "live": "Live"
-          }
+          "title": "Recording overlay",
+          "description": "Show a small pill on screen while recording and transcribing."
         },
         "position": {
           "title": "Overlay Position",
@@ -313,56 +235,19 @@
         "description": "Choose how text is inserted. Direct: simulates typing via system input. None: skips paste, only updates history/clipboard.",
         "options": {
           "clipboard": "Clipboard ({{modifier}}+V)",
-          "clipboardCtrlShiftV": "Clipboard (Ctrl+Shift+V)",
-          "clipboardShiftInsert": "Clipboard (Shift+Insert)",
           "direct": "Direct",
-          "none": "None",
-          "externalScript": "External Script"
-        },
-        "externalScriptPlaceholder": "/path/to/your/script.sh"
-      },
-      "typingTool": {
-        "title": "Typing Tool",
-        "description": "Choose which Linux typing tool to use for Direct paste method. Auto will automatically detect and use the best available tool for your system.",
-        "options": {
-          "auto": "Auto (Recommended)"
-        }
-      },
-      "clipboardHandling": {
-        "title": "Clipboard Handling",
-        "description": "Don't Modify Clipboard preserves your current clipboard contents after transcription. Copy to Clipboard leaves the transcription result in your clipboard after pasting.",
-        "options": {
-          "dontModify": "Don't Modify Clipboard",
-          "copyToClipboard": "Copy to Clipboard"
+          "none": "None"
         }
       },
       "autoSubmit": {
         "title": "Auto Submit",
-        "description": "Automatically send the selected key combination after text insertion. Cmd+Enter applies on macOS, while Windows/Linux use Super+Enter.",
+        "description": "Automatically send the selected key combination after text insertion. Cmd+Enter on macOS.",
         "options": {
           "off": "Off",
           "enter": "Enter",
           "cmdEnter": "Cmd+Enter",
           "superEnter": "Super+Enter",
           "ctrlEnter": "Ctrl+Enter"
-        }
-      },
-      "translateToEnglish": {
-        "label": "Translate to English",
-        "description": "Automatically translate speech from other languages to English during transcription."
-      },
-      "modelUnload": {
-        "title": "Unload Model",
-        "description": "Automatically free GPU/CPU memory when the model hasn't been used for the specified time",
-        "options": {
-          "never": "Never",
-          "immediately": "Immediately",
-          "min2": "After 2 minutes",
-          "min5": "After 5 minutes",
-          "min10": "After 10 minutes",
-          "min15": "After 15 minutes",
-          "hour1": "After 1 hour",
-          "sec15": "After 15 seconds (Debug)"
         }
       },
       "customWords": {
@@ -380,68 +265,62 @@
       "fillerWordRemoval": {
         "title": "Remove Filler Words",
         "description": "Removes common hesitation words from transcriptions. Turn off to keep them."
+      },
+      "deleteData": {
+        "action": "Delete",
+        "cancel": "Cancel",
+        "confirm": "Delete",
+        "deleting": "Deleting…",
+        "warning": "This cannot be undone.",
+        "empty": "Nothing to delete.",
+        "error": "Could not delete. Try again.",
+        "meetingsDeleted_one": "Deleted {{count}} meeting",
+        "meetingsDeleted_other": "Deleted {{count}} meetings",
+        "history": {
+          "title": "Delete all history",
+          "description": "Removes every transcription and its audio file, starred entries included.",
+          "confirmTitle": "Delete all history?",
+          "confirmBody_one": "This removes {{count}} entry and its audio file, starred entries included.",
+          "confirmBody_other": "This removes all {{count}} entries and their audio files, starred entries included."
+        },
+        "meetings": {
+          "title": "Delete all meetings",
+          "description": "Removes every meeting with its recording, transcript and summary.",
+          "confirmTitle": "Delete all meetings?",
+          "confirmBody_one": "This removes {{count}} meeting with its recording, transcript and summary.",
+          "confirmBody_other": "This removes all {{count}} meetings with their recordings, transcripts and summaries."
+        }
+      },
+      "vadBackend": {
+        "title": "VAD backend",
+        "description": "Which detector trims silence. Silero is the stable default; Earshot is experimental.",
+        "options": {
+          "silero": "Silero",
+          "earshot": "Earshot (experimental)"
+        }
       }
     },
     "postProcessing": {
-      "hotkey": {
-        "title": "Hotkey"
+      "groups": {
+        "behaviour": "Behaviour",
+        "llm": "Language model"
       },
-      "api": {
-        "title": "API (OpenAI Compatible)",
-        "provider": {
-          "title": "Provider",
-          "description": "Select an OpenAI-compatible provider."
-        },
-        "appleIntelligence": {
-          "unavailable": "Apple Intelligence is not available on this device. Requires an Apple Silicon Mac running macOS Tahoe (26.0) or later with Apple Intelligence enabled in System Settings."
-        },
-        "baseUrl": {
-          "title": "Base URL",
-          "description": "API base URL for the selected provider. Only the custom provider can be edited.",
-          "placeholder": "https://api.openai.com/v1"
-        },
-        "apiKey": {
-          "title": "API Key",
-          "description": "API key for the selected provider.",
-          "placeholder": "sk-..."
-        },
-        "model": {
-          "title": "Model",
-          "descriptionCustom": "Provide the model identifier expected by your custom endpoint.",
-          "descriptionDefault": "Choose a model exposed by the selected provider.",
-          "placeholderWithOptions": "Search or select a model",
-          "placeholderNoOptions": "Type a model name",
-          "refreshModels": "Refresh models"
-        }
+      "auto": {
+        "title": "Post-process automatically",
+        "description": "Send every dictation through the language model before it is pasted."
       },
-      "prompts": {
+      "noKey": "No API key set. Dictations are pasted as transcribed. Add a key under Models.",
+      "prompt": {
         "title": "Prompt",
-        "selectedPrompt": {
-          "title": "Selected Prompt",
-          "description": "Select a template for refining transcriptions or create a new one. Use ${output} inside the prompt text to reference the captured transcript."
-        },
-        "noPrompts": "No prompts available",
-        "selectPrompt": "Select a prompt",
-        "createNew": "Create New Prompt",
-        "promptLabel": "Prompt Label",
-        "promptLabelPlaceholder": "Enter prompt name",
-        "promptInstructions": "Prompt Instructions",
-        "promptInstructionsPlaceholder": "Write the instructions to run after transcription. Example: Improve grammar and clarity for the following text: ${output}",
-        "promptTip": "Tip: Use <code>${output}</code> to insert the transcribed text in your prompt.",
-        "updatePrompt": "Update Prompt",
-        "deletePrompt": "Delete Prompt",
-        "createPrompt": "Create Prompt",
-        "cancel": "Cancel",
-        "selectToEdit": "Select a prompt above to view and edit its details.",
-        "createFirst": "Click 'Create New Prompt' above to create your first post-processing prompt."
+        "description": "Instructions the model follows when cleaning up a dictation. The transcript is sent as the user message."
       }
     },
     "history": {
-      "title": "History",
       "openFolder": "Open Recordings Folder",
       "loading": "Loading history...",
       "empty": "No transcriptions yet. Start recording to build your history!",
       "copyToClipboard": "Copy transcription to clipboard",
+      "copyError": "Failed to copy to clipboard. Please try again.",
       "save": "Save transcription",
       "unsave": "Remove from saved",
       "delete": "Delete entry",
@@ -449,193 +328,123 @@
       "retranscribe": "Re-transcribe",
       "retranscribeError": "Failed to re-transcribe. Please try again.",
       "transcribing": "Transcribing...",
-      "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon."
+      "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon.",
+      "deletedCount_one": "Deleted {{count}} entry",
+      "deletedCount_other": "Deleted {{count}} entries",
+      "deleteSelectedTitle": "Delete selected entries?",
+      "deleteSelectedDescription_one": "This removes {{count}} entry and its audio file.",
+      "deleteSelectedDescription_other": "This removes {{count}} entries and their audio files.",
+      "cancel": "Cancel",
+      "deleting": "Deleting…",
+      "confirmDelete_one": "Delete {{count}} entry",
+      "confirmDelete_other": "Delete {{count}} entries",
+      "deleteWarning": "This cannot be undone.",
+      "onlyStarredSelected": "Only starred entries are selected. Tick the box above to include them.",
+      "starredWarning_one": "{{count}} starred entry is included in the selection.",
+      "starredWarning_other": "{{count}} starred entries are included in the selection.",
+      "includeStarred_one": "Also delete the starred entry",
+      "includeStarred_other": "Also delete the {{count}} starred entries",
+      "selectNone": "Select none",
+      "selectAllLoaded": "Select all loaded",
+      "selectedOfLoadedPartial": "{{selected}} of {{loaded}} loaded selected (more in history)",
+      "selectedOfLoaded": "{{selected}} of {{loaded}} selected",
+      "exportSelectionTitle_one": "{{count}} transcription",
+      "exportSelectionTitle_other": "{{count}} transcriptions",
+      "clearSelection": "Clear selection",
+      "deleteSelected_one": "Delete {{count}}",
+      "deleteSelected_other": "Delete {{count}}",
+      "editTranscript": "Edit transcript",
+      "editedBadge": "Edited",
+      "exportDocTitle": "Transcription",
+      "transcript": "Transcript",
+      "expandTranscript": "Show full transcript"
     },
     "debug": {
-      "title": "Debug",
       "logDirectory": {
         "title": "Log Directory",
         "description": "Location where log files are stored"
       },
-      "logLevel": {
-        "title": "Log Level",
-        "description": "Set the verbosity of logging"
-      },
-      "liveLogs": {
-        "title": "Live Logs",
-        "description": "Stream application logs in real time to diagnose issues without opening the log file. Only logs emitted while this panel is open are shown; respects the Log Level setting above.",
-        "live": "Live",
-        "paused": "Paused",
-        "pause": "Pause",
-        "resume": "Resume",
-        "copied": "Copied",
-        "lineCount": "{{count}} lines",
-        "empty": "Waiting for logs… Entries appear here as the app emits them."
-      },
-      "updateChecks": {
-        "label": "Check for Updates",
-        "description": "Automatically check for new versions of Handy"
-      },
-      "whatsNewPreview": {
-        "title": "Preview What's New",
-        "description": "Open the latest bundled release note without marking it as seen",
-        "button": "Preview",
-        "noNotes": "No bundled release notes found",
-        "error": "Failed to preview release notes"
-      },
-      "soundTheme": {
-        "label": "Sound Theme",
-        "description": "Choose a sound theme for recording start and stop feedback"
-      },
-      "wordCorrectionThreshold": {
-        "title": "Word Correction Threshold",
-        "description": "Sensitivity for custom word corrections"
-      },
-      "historyLimit": {
-        "title": "History Limit",
-        "description": "Maximum number of history entries to keep",
-        "entries": "entries"
-      },
-      "recordingRetention": {
-        "title": "Auto-Delete Recordings",
-        "description": "Automatically delete old recordings to save space",
-        "never": "Never",
-        "preserveLimit": "Keep latest {{count}}",
-        "days3": "After 3 days",
-        "weeks2": "After 2 weeks",
-        "months3": "After 3 months",
-        "placeholder": "Select retention period..."
-      },
-      "alwaysOnMicrophone": {
-        "label": "Always-On Microphone",
-        "description": "Keep microphone active for faster response"
-      },
-      "clamshellMicrophone": {
-        "title": "Clamshell Microphone",
-        "description": "Microphone to use when laptop lid is closed"
-      },
-      "postProcessingToggle": {
-        "label": "Post Processing",
-        "description": "Enable AI-powered text refinement after transcription"
-      },
       "muteWhileRecording": {
         "label": "Mute While Recording",
         "description": "Mute system audio during recording"
-      },
-      "appendTrailingSpace": {
-        "label": "Append Trailing Space",
-        "description": "Add a space after pasted transcription"
-      },
-      "keyboardImplementation": {
-        "title": "Keyboard Implementation",
-        "description": "Choose the keyboard shortcut backend.",
-        "bindingsReset": "Keyboard shortcuts were incompatible and reset to defaults"
-      },
-      "paths": {
-        "appData": "App Data:",
-        "models": "Models:",
-        "settings": "Settings:"
-      },
-      "pasteDelay": {
-        "title": "Paste Delay (Before)",
-        "description": "Delay (in milliseconds) after copying text, before sending the paste keystroke. Increase if nothing gets pasted."
-      },
-      "pasteDelayAfter": {
-        "title": "Paste Delay (After)",
-        "description": "Delay (in milliseconds) after the paste keystroke, before restoring your previous clipboard. Increase if your old clipboard content is being pasted instead of the transcription."
-      },
-      "reliablePaste": {
-        "title": "Reliable Paste (Beta)",
-        "description": "Restore the clipboard only after the target app actually reads the transcription, instead of after a fixed delay. Intended to fix old clipboard content being pasted under system load. Requires a clipboard paste method; macOS and Windows only."
-      },
-      "recordingBuffer": {
-        "title": "Extra Recording Buffer",
-        "description": "Extra time (in milliseconds) to keep recording after you release the key, to capture trailing audio. 0 = no extra buffer."
-      },
-      "keyboardDiagnostic": {
-        "title": "Keyboard Diagnostic",
-        "description": "Checks whether keyboard events reach Handy. Only event counts are recorded — never which keys you press.",
-        "run": "Run 10s diagnostic",
-        "running": "Listening… press your shortcut a few times (e.g. Option+Space)",
-        "secureInputLabel": "Secure Input",
-        "enabled": "enabled",
-        "disabled": "disabled",
-        "holder": "held by {{name}} (pid {{pid}})",
-        "holderUnknown": "no visible holder",
-        "keyDown": "Key down",
-        "keyUp": "Key up",
-        "flagsChanged": "Modifiers",
-        "mouse": "Mouse",
-        "verdictBlocked": "Secure Input is blocking key events — keyed shortcuts cannot work until it is resolved.",
-        "verdictSuspicious": "Modifier events arrived but no key events — something is suppressing keys even though Secure Input reports disabled. Please report this on GitHub.",
-        "verdictOk": "Key events are reaching Handy normally.",
-        "verdictNoEvents": "No events captured — did you press any keys during the test?",
-        "failed": "Diagnostic failed: {{error}}"
       }
     },
     "about": {
       "title": "About",
+      "privacy": {
+        "title": "Privacy",
+        "intro": "Kandy processes audio locally. Your voice never leaves your machine.",
+        "localTitle": "Stays on your machine",
+        "localPoints": [
+          "Microphone audio. Never streamed off-device.",
+          "Transcripts live in a local SQLite database.",
+          "Meeting recordings live as WAV files in the app data directory.",
+          "Whisper and VAD run on your GPU."
+        ],
+        "cloudTitle": "Leaves your machine",
+        "cloudPoints": [
+          "Only transcribed text, and only when you request a summary.",
+          "The text is sent to the Kantega LLM proxy over HTTPS.",
+          "Kantega operates the LLM proxy itself.",
+          "The proxy uses only models hosted in Europe."
+        ],
+        "controlTitle": "How to control your data",
+        "controlPoints": [
+          "Delete individual meetings and transcripts from the history tab.",
+          "Delete the app data directory to reset everything.",
+          "Remove the LLM proxy key to disable summaries.",
+          "Delete the app to remove all traces from your machine."
+        ],
+        "noTelemetryTitle": "No telemetry",
+        "noTelemetryBody": "Kandy sends no usage stats, crash reports, or identifiers to Kantega or anyone else. No account, no login, no tracking."
+      },
       "version": {
         "title": "Version",
-        "description": "Current version of Handy"
-      },
-      "whatsNewUpdates": {
-        "label": "Show What's New",
-        "description": "Show release notes after Handy updates"
+        "description": "Current version of Kandy"
       },
       "appDataDirectory": {
         "title": "App Data Directory",
-        "description": "Location where Handy stores its data"
-      },
-      "sourceCode": {
-        "title": "Source Code",
-        "description": "View source code and contribute",
-        "button": "View on GitHub"
-      },
-      "supportDevelopment": {
-        "title": "Support Development",
-        "description": "Help us continue building Handy",
-        "button": "Donate"
+        "description": "Location where Kandy stores its data"
       },
       "acknowledgments": {
         "title": "Acknowledgments",
         "ggml": {
           "title": "ggml",
           "description": "High-performance tensor library for on-device machine learning inference",
-          "details": "Handy's local speech-to-text is built on transcribe.cpp and ggml. Thanks to the amazing work by Georgi Gerganov and contributors."
+          "details": "Kandy's local speech-to-text is built on transcribe.cpp and ggml. Thanks to the amazing work by Georgi Gerganov and contributors."
         }
+      }
+    },
+    "llm": {
+      "apiKey": {
+        "title": "Kantega LLM proxy API key",
+        "description": "One key shared by post-processing and meeting summaries. Stored locally and encrypted; sent only as the auth header to the Kantega proxy.",
+        "descriptionSet": "A key is stored. Paste a new one to replace it, or remove it to turn post-processing and summaries off.",
+        "placeholder": "Paste your key…",
+        "placeholderSet": "Key set — paste a new key to replace",
+        "remove": "Remove",
+        "removed": "Key removed — post-processing and summaries are off",
+        "saveFailed": "Could not save the key"
+      },
+      "sectionTitle": "Language model (Kantega LLM proxy)",
+      "model": {
+        "title": "Model",
+        "description": "Full model id on the Kantega LLM proxy, for example vertex_ai/claude-sonnet-4-6."
       }
     }
   },
-  "footer": {
-    "checkingUpdates": "Checking for updates...",
-    "updateAvailableShort": "Update available",
-    "upToDate": "Up to date",
-    "updateCheckingDisabled": "Update Checking Disabled",
-    "downloading": "Downloading... {{progress}}%",
-    "installing": "Installing...",
-    "preparing": "Preparing...",
-    "checkForUpdates": "Check for updates",
-    "portableUpdateTitle": "Manual update required",
-    "portableUpdateMessage": "Portable installs cannot be updated automatically. Download the installer for your system below, run it, and install to the same folder — your Data/ folder (settings, models, recordings) is kept in place.",
-    "portableUpdateButton": "Download installer",
-    "portableUpdateBrowseMessage": "Portable installs cannot be updated automatically. Download the latest version for your system from GitHub Releases and install it to the same folder — your Data/ folder (settings, models, recordings) is kept in place.",
-    "portableUpdateBrowseButton": "Open GitHub Releases"
-  },
-  "whatsNew": {
-    "title": "New in Handy v{{version}}"
-  },
   "common": {
-    "loading": "Loading...",
     "delete": "Delete",
-    "close": "Close",
     "open": "Open",
-    "copy": "Copy",
-    "clear": "Clear",
-    "noOptionsFound": "No options found"
+    "noOptionsFound": "No options found",
+    "unknownSize": "Unknown size",
+    "selectOption": "Select an option…",
+    "save": "Save",
+    "resetToDefault": "Reset to default",
+    "saved": "Saved"
   },
   "accessibility": {
-    "permissionsDescription": "Handy needs accessibility permissions to type transcribed text.",
+    "permissionsDescription": "Kandy needs accessibility permissions to type transcribed text.",
     "openSettings": "Open System Settings"
   },
   "errors": {
@@ -643,9 +452,7 @@
     "micPermissionDeniedTitle": "Microphone Access Denied",
     "micPermissionDenied": {
       "generic": "Microphone access was denied by the operating system. Please grant microphone permission in your system settings.",
-      "windows": "Enable microphone access in Settings → Privacy & security → Microphone (including desktop app access).",
-      "macos": "Grant microphone access in System Settings → Privacy & Security → Microphone.",
-      "linux": "Grant microphone access in your system's sound or privacy settings."
+      "macos": "Grant microphone access in System Settings → Privacy & Security → Microphone."
     },
     "noInputDeviceTitle": "No Microphone Found",
     "noInputDevice": "No audio input device was detected. Please connect a microphone or headset and try again.",
@@ -658,11 +465,11 @@
   },
   "appLanguage": {
     "title": "Application Language",
-    "description": "Change the language of the Handy interface"
+    "description": "Change the language of the Kandy interface"
   },
   "theme": {
     "title": "Application Theme",
-    "description": "Choose whether Handy follows your system theme or stays light or dark",
+    "description": "Choose whether Kandy follows your system theme or stays light or dark",
     "options": {
       "system": "System",
       "light": "Light",
@@ -671,7 +478,8 @@
   },
   "overlay": {
     "transcribing": "Transcribing...",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "cancel": "Cancel"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} may be blocking 1 shortcut",
@@ -683,5 +491,100 @@
     "learnMore": "How to fix",
     "recorderBlocked": "Can't record shortcuts right now — macOS Secure Input is blocking key events. Resolve the Secure Input warning first.",
     "dismiss": "Dismiss"
+  },
+  "meeting": {
+    "record": "Start recording",
+    "upload": "Upload audio",
+    "stop": "Stop & transcribe",
+    "transcribing": "Transcribing…",
+    "summarizing": "Generating summary…",
+    "noKey": "No LLM proxy key. Meetings are transcribed, but no summary is generated. Add a key under Models.",
+    "pastMeetings": "Past meetings",
+    "empty": "No meetings yet. Start a recording above.",
+    "audioFiles": "Audio files",
+    "dropActive": "Drop to transcribe",
+    "queued": "Transcribing {{count}} files, one after another.",
+    "downloadAudio": "Download recording",
+    "audioSaved": "Recording saved",
+    "noTranscript": "No transcript.",
+    "generateSummary": "Create summary",
+    "regenerate": "Generate the summary again",
+    "copySummary": "Copy summary",
+    "copyTranscript": "Copy transcript",
+    "delete": "Delete meeting",
+    "addKeyHint": "Add an API key under Models",
+    "customPrompt": {
+      "title": "Prompt for this meeting",
+      "help": "Used for this meeting only, and kept with it.",
+      "reset": "Use default",
+      "run": "Summarize with this prompt"
+    },
+    "disclaimer": "AI-generated with {{model}}. A starting point for review, not a verbatim record.",
+    "settings": {
+      "title": "Summary settings",
+      "prompt": "Summary prompt (Norwegian)",
+      "autoSummarize": "Generate summary automatically",
+      "autoSummarizeHelp": "Summarise every meeting right after transcription. When off, use “Create summary” on the meeting.",
+      "promptHelp": "Instructions the model follows when summarising. The transcript is sent as the user message.",
+      "autoTitle": "Name meetings automatically",
+      "autoTitleHelp": "After a summary, the language model proposes a short title. A title you typed yourself is never replaced."
+    },
+    "errors": {
+      "startFailed": "Could not start recording",
+      "transcribeFailed": "Transcription failed",
+      "summaryFailed": "Could not generate summary",
+      "deleteFailed": "Could not delete meeting",
+      "decodeFailed": "Could not read the audio file",
+      "decodeFailedHint": "\"{{file}}\" is damaged, empty, or in a format Kandy cannot decode.",
+      "unsupportedFile_one": "1 file was skipped",
+      "unsupportedFile_other": "{{count}} files were skipped",
+      "unsupportedFileHint": "Kandy reads these formats: {{formats}}.",
+      "audioSaveFailed": "Could not save the recording"
+    },
+    "recording": "Recording",
+    "hint": "Records the selected input and transcribes locally with Whisper. Drop audio files anywhere on this tab.",
+    "expand": "Show meeting",
+    "collapse": "Hide meeting",
+    "search": {
+      "label": "Search meetings",
+      "placeholder": "Search title, summary and transcript…",
+      "clear": "Clear search",
+      "count": "{{shown}} of {{total}} meetings",
+      "noMatches": "No meetings match \"{{query}}\"."
+    },
+    "sections": {
+      "summary": "Summary",
+      "transcript": "Transcript"
+    },
+    "deleteDialog": {
+      "title": "Delete meeting?",
+      "description": "The recording, transcript and summary are removed permanently.",
+      "confirm": "Delete",
+      "cancel": "Cancel"
+    }
+  },
+  "export": {
+    "label": "Export",
+    "asWord": "Export as Word",
+    "asPdf": "Export as PDF",
+    "saved": "Exported",
+    "errors": {
+      "failed": "Export failed"
+    },
+    "edit": {
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "empty": "Nothing here yet.",
+      "hint": "Cmd/Ctrl + Enter saves · Esc cancels",
+      "saveFailed": "Could not save changes",
+      "editSummary": "Edit summary",
+      "editTranscript": "Edit transcript",
+      "editTitle": "Edit title"
+    }
+  },
+  "audioPlayer": {
+    "play": "Play",
+    "pause": "Pause"
   }
 }

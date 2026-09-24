@@ -11,7 +11,6 @@ interface SliderProps {
   disabled?: boolean;
   label: string;
   description: string;
-  descriptionMode?: "inline" | "tooltip";
   grouped?: boolean;
   showValue?: boolean;
   formatValue?: (value: number) => string;
@@ -28,7 +27,6 @@ export const Slider: React.FC<SliderProps> = ({
   disabled = false,
   label,
   description,
-  descriptionMode = "tooltip",
   grouped = false,
   showValue = true,
   formatValue = (v) => v.toFixed(2),
@@ -43,7 +41,6 @@ export const Slider: React.FC<SliderProps> = ({
     <SettingContainer
       title={label}
       description={description}
-      descriptionMode={descriptionMode}
       grouped={grouped}
       layout="horizontal"
       disabled={disabled}
@@ -62,9 +59,7 @@ export const Slider: React.FC<SliderProps> = ({
             style={{
               background: `linear-gradient(to right, var(--color-background-ui) ${
                 ((value - min) / (max - min)) * 100
-              }%, rgba(128, 128, 128, 0.2) ${
-                ((value - min) / (max - min)) * 100
-              }%)`,
+              }%, var(--color-track) ${((value - min) / (max - min)) * 100}%)`,
             }}
           />
           {showValue && (

@@ -2,7 +2,6 @@ use enigo::{Enigo, Key, Keyboard, Mouse, Settings};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 
-#[cfg(target_os = "macos")]
 mod macos {
     use super::Key;
     use log::{debug, warn};
@@ -12,7 +11,7 @@ mod macos {
     type CfDataRef = *const c_void;
     type CfStringRef = *const c_void;
 
-    // kVK_ANSI_V. This is the behavior Handy used before layout-aware
+    // kVK_ANSI_V. This is the behavior Kandy used before layout-aware
     // resolution and remains the safest fallback if macOS cannot expose the
     // active layout.
     const ANSI_V_KEYCODE: u16 = 9;
@@ -72,7 +71,7 @@ mod macos {
     /// held. Including Command is important: non-Latin layouts commonly map
     /// Cmd shortcuts to their ANSI equivalents, while standard Dvorak does not.
     ///
-    /// TIS APIs must run on the main thread. Handy's paste path already enters
+    /// TIS APIs must run on the main thread. Kandy's paste path already enters
     /// through `AppHandle::run_on_main_thread` before reaching this function.
     fn resolve_command_v_keycode() -> Result<u16, String> {
         // SAFETY: This function is called on the macOS main thread. The returned
@@ -168,22 +167,14 @@ pub fn get_cursor_position(app_handle: &AppHandle) -> Option<(i32, i32)> {
 
 /// Sends a Ctrl+V or Cmd+V paste command using platform-specific virtual key codes.
 /// This ensures the paste works regardless of keyboard layout (e.g., Russian, AZERTY, DVORAK).
-/// Note: On Wayland, this may not work - callers should check for Wayland and use alternative methods.
 ///
 /// `hold_ms` is how long the modifier stays held after the V click before being
 /// released. Most applications read the modifier from the V event's flags and
 /// need no hold at all, but applications that poll global keyboard state when
-/// handling the key need the modifier to still be down — the hold insures
-/// against those. Callers that can detect a failed chord (e.g. the
-/// receipt-sequenced paste path) may use a much shorter hold.
+/// handling the key need the modifier to still be down; the hold insures
+/// against those.
 pub fn send_paste_ctrl_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
-    // Platform-specific key definitions
-    #[cfg(target_os = "macos")]
     let (modifier_key, v_key_code) = (Key::Meta, macos::command_v_key());
-    #[cfg(target_os = "windows")]
-    let (modifier_key, v_key_code) = (Key::Control, Key::Other(0x56)); // VK_V
-    #[cfg(target_os = "linux")]
-    let (modifier_key, v_key_code) = (Key::Control, Key::Unicode('v'));
 
     // Press modifier + V
     enigo
@@ -198,67 +189,6 @@ pub fn send_paste_ctrl_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> 
     enigo
         .key(modifier_key, enigo::Direction::Release)
         .map_err(|e| format!("Failed to release modifier key: {}", e))?;
-
-    Ok(())
-}
-
-/// Sends a Ctrl+Shift+V paste command.
-/// This is commonly used in terminal applications on Linux to paste without formatting.
-/// Note: On Wayland, this may not work - callers should check for Wayland and use alternative methods.
-pub fn send_paste_ctrl_shift_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
-    // Platform-specific key definitions
-    #[cfg(target_os = "macos")]
-    let (modifier_key, v_key_code) = (Key::Meta, macos::command_v_key());
-    #[cfg(target_os = "windows")]
-    let (modifier_key, v_key_code) = (Key::Control, Key::Other(0x56)); // VK_V
-    #[cfg(target_os = "linux")]
-    let (modifier_key, v_key_code) = (Key::Control, Key::Unicode('v'));
-
-    // Press Ctrl/Cmd + Shift + V
-    enigo
-        .key(modifier_key, enigo::Direction::Press)
-        .map_err(|e| format!("Failed to press modifier key: {}", e))?;
-    enigo
-        .key(Key::Shift, enigo::Direction::Press)
-        .map_err(|e| format!("Failed to press Shift key: {}", e))?;
-    enigo
-        .key(v_key_code, enigo::Direction::Click)
-        .map_err(|e| format!("Failed to click V key: {}", e))?;
-
-    std::thread::sleep(std::time::Duration::from_millis(hold_ms));
-
-    enigo
-        .key(Key::Shift, enigo::Direction::Release)
-        .map_err(|e| format!("Failed to release Shift key: {}", e))?;
-    enigo
-        .key(modifier_key, enigo::Direction::Release)
-        .map_err(|e| format!("Failed to release modifier key: {}", e))?;
-
-    Ok(())
-}
-
-/// Sends a Shift+Insert paste command (Windows and Linux only).
-/// This is more universal for terminal applications and legacy software.
-/// Note: On Wayland, this may not work - callers should check for Wayland and use alternative methods.
-pub fn send_paste_shift_insert(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    let insert_key_code = Key::Other(0x2D); // VK_INSERT
-    #[cfg(not(target_os = "windows"))]
-    let insert_key_code = Key::Other(0x76); // XK_Insert (keycode 118 / 0x76, also used as fallback)
-
-    // Press Shift + Insert
-    enigo
-        .key(Key::Shift, enigo::Direction::Press)
-        .map_err(|e| format!("Failed to press Shift key: {}", e))?;
-    enigo
-        .key(insert_key_code, enigo::Direction::Click)
-        .map_err(|e| format!("Failed to click Insert key: {}", e))?;
-
-    std::thread::sleep(std::time::Duration::from_millis(hold_ms));
-
-    enigo
-        .key(Key::Shift, enigo::Direction::Release)
-        .map_err(|e| format!("Failed to release Shift key: {}", e))?;
 
     Ok(())
 }

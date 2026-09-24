@@ -20,11 +20,13 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   const baseClasses =
-    "font-medium rounded-lg border focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
+    "font-medium rounded-lg border focus:outline-none transition-[color,background-color,border-color,filter] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer";
 
   const variantClasses = {
+    // Off-white label on the dark coral fill; both ends of the gradient clear
+    // AA for normal text (theme.css).
     primary:
-      "text-white bg-background-ui border-background-ui hover:bg-background-ui/80 hover:border-background-ui/80 focus:ring-1 focus:ring-background-ui",
+      "text-on-accent bg-background-ui bg-accent-gradient border-transparent hover:brightness-110 focus-visible:ring-2 focus-visible:ring-background-ui focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     "primary-soft":
       "text-text bg-logo-primary/20 border-transparent hover:bg-logo-primary/30 focus:ring-1 focus:ring-logo-primary",
     secondary:
@@ -34,10 +36,12 @@ export const Button: React.FC<ButtonProps> = ({
     // buttons sitting on warning surfaces like SecureInputWarning
     warning:
       "text-text bg-mid-gray/10 border-mid-gray/20 hover:bg-warning/15 hover:border-warning focus:ring-1 focus:ring-warning",
+    // Destructive actions use --color-danger, which is kept distinct from the
+    // coral primary in both themes so "delete" never looks like "confirm".
     danger:
-      "text-white bg-red-600 border-mid-gray/20 hover:bg-red-700 hover:border-red-700 focus:ring-1 focus:ring-red-500",
+      "text-on-danger bg-danger border-danger hover:bg-danger/85 hover:border-danger/85 focus:ring-1 focus:ring-danger",
     "danger-ghost":
-      "text-red-400 border-transparent hover:text-red-300 hover:bg-red-500/10 focus:bg-red-500/20",
+      "text-error border-transparent hover:bg-error/10 focus:bg-error/20",
     ghost:
       "text-current border-transparent hover:bg-mid-gray/10 hover:border-logo-primary focus:bg-mid-gray/20",
   };

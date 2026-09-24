@@ -1,6 +1,8 @@
+import i18n from "@/i18n";
+
 export const formatModelSize = (sizeMb: number | null | undefined): string => {
   if (!sizeMb || !Number.isFinite(sizeMb) || sizeMb <= 0) {
-    return "Unknown size";
+    return i18n.t("common.unknownSize");
   }
 
   if (sizeMb >= 1024) {

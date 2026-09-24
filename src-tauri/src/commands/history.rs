@@ -1,6 +1,6 @@
 use crate::actions::process_transcription_output;
 use crate::managers::{
-    history::{HistoryManager, PaginatedHistory},
+    history::{HistoryEntry, HistoryManager, HistoryStats, PaginatedHistory},
     transcription::TranscriptionManager,
 };
 use std::sync::Arc;
@@ -9,7 +9,6 @@ use tauri::{AppHandle, State};
 #[tauri::command]
 #[specta::specta]
 pub async fn get_history_entries(
-    _app: AppHandle,
     history_manager: State<'_, Arc<HistoryManager>>,
     cursor: Option<i64>,
     limit: Option<usize>,
@@ -23,7 +22,6 @@ pub async fn get_history_entries(
 #[tauri::command]
 #[specta::specta]
 pub async fn toggle_history_entry_saved(
-    _app: AppHandle,
     history_manager: State<'_, Arc<HistoryManager>>,
     id: i64,
 ) -> Result<(), String> {
@@ -36,7 +34,6 @@ pub async fn toggle_history_entry_saved(
 #[tauri::command]
 #[specta::specta]
 pub async fn get_audio_file_path(
-    _app: AppHandle,
     history_manager: State<'_, Arc<HistoryManager>>,
     file_name: String,
 ) -> Result<String, String> {
@@ -49,13 +46,64 @@ pub async fn get_audio_file_path(
 #[tauri::command]
 #[specta::specta]
 pub async fn delete_history_entry(
-    _app: AppHandle,
     history_manager: State<'_, Arc<HistoryManager>>,
     id: i64,
 ) -> Result<(), String> {
     history_manager
         .delete_entry(id)
         .await
+        .map_err(|e| e.to_string())
+}
+
+/// Delete several entries in one transaction, audio files included.
+///
+/// Preferred over looping `delete_history_entry` from the frontend: a single
+/// round trip, and either the whole selection goes or none of it does.
+#[tauri::command]
+#[specta::specta]
+pub async fn delete_history_entries(
+    history_manager: State<'_, Arc<HistoryManager>>,
+    ids: Vec<i64>,
+) -> Result<usize, String> {
+    history_manager
+        .delete_entries(&ids)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Wipe the history. Starred entries are kept unless `include_saved` is set.
+#[tauri::command]
+#[specta::specta]
+pub async fn delete_all_history_entries(
+    history_manager: State<'_, Arc<HistoryManager>>,
+    include_saved: bool,
+) -> Result<usize, String> {
+    history_manager
+        .delete_all_entries(include_saved)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Row counts for the whole history, so the "delete all" confirmation can name
+/// the real numbers rather than only the entries scrolled into view.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_history_stats(
+    history_manager: State<'_, Arc<HistoryManager>>,
+) -> Result<HistoryStats, String> {
+    history_manager.get_stats().map_err(|e| e.to_string())
+}
+
+/// Replace an entry's transcript with text the user corrected by hand.
+#[tauri::command]
+#[specta::specta]
+pub async fn update_history_entry_text(
+    history_manager: State<'_, Arc<HistoryManager>>,
+    id: i64,
+    text: String,
+) -> Result<HistoryEntry, String> {
+    history_manager
+        .update_transcription_text(id, text)
         .map_err(|e| e.to_string())
 }
 
@@ -104,51 +152,4 @@ pub async fn retry_history_entry_transcription(
         )
         .map(|_| ())
         .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn update_history_limit(
-    app: AppHandle,
-    history_manager: State<'_, Arc<HistoryManager>>,
-    limit: usize,
-) -> Result<(), String> {
-    let mut settings = crate::settings::get_settings(&app);
-    settings.history_limit = limit;
-    crate::settings::write_settings(&app, settings);
-
-    history_manager
-        .cleanup_old_entries()
-        .map_err(|e| e.to_string())?;
-
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn update_recording_retention_period(
-    app: AppHandle,
-    history_manager: State<'_, Arc<HistoryManager>>,
-    period: String,
-) -> Result<(), String> {
-    use crate::settings::RecordingRetentionPeriod;
-
-    let retention_period = match period.as_str() {
-        "never" => RecordingRetentionPeriod::Never,
-        "preserve_limit" => RecordingRetentionPeriod::PreserveLimit,
-        "days3" => RecordingRetentionPeriod::Days3,
-        "weeks2" => RecordingRetentionPeriod::Weeks2,
-        "months3" => RecordingRetentionPeriod::Months3,
-        _ => return Err(format!("Invalid retention period: {}", period)),
-    };
-
-    let mut settings = crate::settings::get_settings(&app);
-    settings.recording_retention_period = retention_period;
-    crate::settings::write_settings(&app, settings);
-
-    history_manager
-        .cleanup_old_entries()
-        .map_err(|e| e.to_string())?;
-
-    Ok(())
 }

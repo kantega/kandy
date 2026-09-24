@@ -6,12 +6,11 @@ import { ResetButton } from "../ui/ResetButton";
 import { useSettings } from "../../hooks/useSettings";
 
 interface MicrophoneSelectorProps {
-  descriptionMode?: "inline" | "tooltip";
   grouped?: boolean;
 }
 
 export const MicrophoneSelector: React.FC<MicrophoneSelectorProps> = React.memo(
-  ({ descriptionMode = "tooltip", grouped = false }) => {
+  ({ grouped = false }) => {
     const { t } = useTranslation();
     const {
       getSetting,
@@ -45,7 +44,6 @@ export const MicrophoneSelector: React.FC<MicrophoneSelectorProps> = React.memo(
       <SettingContainer
         title={t("settings.sound.microphone.title")}
         description={t("settings.sound.microphone.description")}
-        descriptionMode={descriptionMode}
         grouped={grouped}
       >
         <div className="flex items-center space-x-1">

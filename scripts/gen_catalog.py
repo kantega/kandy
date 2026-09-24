@@ -3,14 +3,19 @@
 # dependencies = ["huggingface_hub", "fsspec"]
 # ///
 """
-Handy model catalog generator.
+Kandy model catalog generator.
 
 Merges three sources into one catalog.json:
   1. HF card `transcribe_cpp` block  -> capabilities + benchmarks (canonical)
   2. a tiny GGUF header range-read    -> display labels only
   3. local CURATION (this file)       -> recommended set, editorial descriptions
 
+Kandy is Whisper-only: Norwegian is only supported by the Whisper family, so
+every non-Whisper repo in the org is dropped (see WHISPER_ARCH / the family
+filter in `main`). Regenerating must never reintroduce them.
+
 Emits catalog.json to be committed and `include_str!`'d into the Rust binary.
+Defaults to src-tauri/src/catalog/catalog.json; pass out_path to override.
 Run:  HF_TOKEN=$(hf auth token) uv run gen_catalog.py [out_path]
 """
 import json, os, re, sys, math, struct, datetime
@@ -43,22 +48,7 @@ def acc_from_wer(wer):
 # badge / onboarding subset — independent of rank, so a model can rank high
 # without carrying the recommended tag.
 CURATION = {
-    "parakeet-unified-en-0.6b":        {"rank": 1, "rec": True, "desc": "Fast, accurate live English transcription"},
-    "nemotron-3.5-asr-streaming-0.6b": {"rank": 2, "rec": True, "desc": "Live multilingual transcription across 28 languages"},
-    "canary-180m-flash":               {"rank": 3, "rec": True, "desc": "Tiny and instant, runs well on any hardware"},
-    "cohere-transcribe-03-2026":       {"rank": 4, "rec": True, "desc": "Highest accuracy, 14 languages, slower"},
     "whisper-medium":                  {"rank": 5, "rec": True, "desc": "Broadest language, but may run a bit slow"},
-    # ranked (sorted high) but NOT tagged recommended
-    "Voxtral-Mini-4B-Realtime-2602":   {"rank": 6, "desc": "Live multilingual, excellent on powerful machines"},
-    "parakeet-tdt-0.6b-v3":            {"rank": 7, "desc": "Fast and accurate. Supports 25 European languages"},
-    "parakeet-tdt-0.6b-v2":            {"rank": 8, "desc": "English only. The best model for English speakers"},
-    "Qwen3-ASR-0.6B":                  {"rank": 9, "desc": "Excellent multilingual model"},
-    "Fun-ASR-MLT-Nano-2512":           {"rank": 10, "desc": "A tiny multilingual model"},
-    # description-only (unranked, not recommended) — carried over from the legacy .bin entry
-    "Breeze-ASR-25":                   {"desc": "Optimized for Taiwanese Mandarin. Code-switching support."},
-    # Sortformer emits speaker segments only; Handy's catalog is for models
-    # that produce transcription text.
-    "diar_streaming_sortformer_4spk-v2.1": {"hidden": True},
 }
 # temporary capability corrections pending a card re-push (remove once cards fixed)
 OVERRIDES = {
@@ -67,9 +57,9 @@ OVERRIDES = {
 }
 
 # ───────────────────────── helpers ──────────────────────────────────────────
-ARCH = ["whisper","moonshine-streaming","moonshine","parakeet","canary-qwen","canary","voxtral",
-        "granite-speech","granite","qwen3","gigaam","sensevoice","cohere","fun-asr","nemotron","medasr",
-        "moss","sortformer"]
+# The only architecture Kandy ships. Anything else is dropped in `main`.
+WHISPER_ARCH = "whisper"
+ARCH = [WHISPER_ARCH]
 ACR = {"asr":"ASR","ctc":"CTC","rnnt":"RNNT","tdt":"TDT","nar":"NAR","mlt":"MLT"}
 SCALAR = {0:("<B",1),1:("<b",1),2:("<H",2),3:("<h",2),4:("<I",4),5:("<i",4),
           6:("<f",4),7:("<?",1),10:("<Q",8),11:("<q",8),12:("<d",8)}
@@ -77,10 +67,9 @@ SCALAR = {0:("<B",1),1:("<b",1),2:("<H",2),3:("<h",2),4:("<I",4),5:("<i",4),
 def slug(repo): return repo.split("/")[1].replace("-gguf", "")
 def family(s, tags):
     for f in ARCH:
-        if f in s.lower(): return "moonshine" if f.startswith("moonshine") else f.split("-")[0]
+        if f in s.lower(): return f
     for t in tags or []:
-        if t in ("whisper","moonshine","parakeet","canary","voxtral","granite","qwen3","gigaam","sensevoice","cohere"):
-            return t
+        if t == WHISPER_ARCH: return t
     return "other"
 def pretty(s):
     return " ".join(ACR.get(p.lower(), p if (p.isupper() or any(c.isdigit() for c in p)) else p.capitalize())
@@ -105,7 +94,6 @@ LANG_NAMES = {"en":"English","ar":"Arabic","ja":"Japanese","ko":"Korean","ru":"R
               "uk":"Ukrainian","vi":"Vietnamese","zh":"Chinese"}
 def auto_desc(langs, caps):
     feats = []
-    if caps["translate"]:   feats.append("translation")
     if caps["lang_detect"]: feats.append("auto language detection")
     if caps["streaming"]:   feats.append("streaming")
     if caps["timestamps"] != "none": feats.append(f"{caps['timestamps']}-level timestamps")
@@ -214,7 +202,10 @@ def build(repo):
     q8 = next((f for f in files if "Q8" in f["quant"]), files[-1] if files else None)
     gg = probe_header(repo, q8["filename"]) if q8 else {}
 
-    caps = {"streaming": bool(b.get("streaming")), "translate": bool(b.get("translate")),
+    # "translate" (whisper's translate-to-English task) is deliberately not
+    # emitted: the feature was removed from Kandy, so the catalog does not
+    # carry a capability nothing reads.
+    caps = {"streaming": bool(b.get("streaming")),
             "lang_detect": bool(b.get("lang_detect")), "timestamps": b.get("timestamps", "none")}
     ryz = b.get("rtf_ryzen_4750u") or {};  rtf = ryz.get("vulkan", ryz.get("cpu"))
     eval_set, werd = pick_wer(b);  hw, hwq = headline_wer(werd)
@@ -268,6 +259,10 @@ def main():
         for f in as_completed(futs):
             try:
                 m = f.result()
+                # Whisper-only: drop every other architecture the org publishes.
+                if m.get("architecture") != WHISPER_ARCH:
+                    print(f".. skipping non-Whisper {m['id']} ({m.get('architecture')})", file=sys.stderr)
+                    continue
                 if not CURATION.get(m["slug"], {}).get("hidden"): models.append(m)
             except Exception as e:
                 failures.append((futs[f], e))
@@ -293,7 +288,13 @@ def main():
     text = re.sub(r'\{\s+("filename":.*?"sha256": "[0-9a-f]{64}")\s+\}',
                   lambda m: "{" + re.sub(r",\s+", ", ", m.group(1)) + "}",
                   text, flags=re.S)
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(__file__), "catalog.json")
+    # Default straight to the committed copy the Rust binary `include_str!`s.
+    # Writing to scripts/catalog.json instead left the real catalog untouched.
+    default_out = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "src-tauri", "src", "catalog", "catalog.json",
+    )
+    out = sys.argv[1] if len(sys.argv) > 1 else default_out
     open(out, "w").write(text)
     print(f"wrote {out}: {len(models)} models, {os.path.getsize(out)/1024:.1f} KB", file=sys.stderr)
 

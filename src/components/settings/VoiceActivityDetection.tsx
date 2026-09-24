@@ -4,12 +4,10 @@ import { ToggleSwitch } from "../ui/ToggleSwitch";
 import { useSettings } from "../../hooks/useSettings";
 
 interface VoiceActivityDetectionProps {
-  descriptionMode?: "tooltip" | "inline";
   grouped?: boolean;
 }
 
 export const VoiceActivityDetection: React.FC<VoiceActivityDetectionProps> = ({
-  descriptionMode = "tooltip",
   grouped = false,
 }) => {
   const { t } = useTranslation();
@@ -23,7 +21,6 @@ export const VoiceActivityDetection: React.FC<VoiceActivityDetectionProps> = ({
       isUpdating={isUpdating("vad_enabled")}
       label={t("settings.advanced.voiceActivityDetection.title")}
       description={t("settings.advanced.voiceActivityDetection.description")}
-      descriptionMode={descriptionMode}
       grouped={grouped}
     />
   );

@@ -13,10 +13,94 @@
   --color-mid-gray: var(--color-mid-gray);
   --color-warning: var(--color-warning);
   --color-error: var(--color-error);
+  --color-success: var(--color-success);
+  --color-info: var(--color-info);
+  --color-danger: var(--color-danger);
+  --color-on-accent: var(--color-on-accent);
+  --color-on-danger: var(--color-on-danger);
+  --color-log-surface: var(--color-log-surface);
+  --color-scrim: var(--color-scrim);
+  --color-surface: var(--color-surface);
+  --color-track: var(--color-track);
+  --color-card-border: var(--color-card-border);
+  --color-edge: var(--color-edge);
+  --color-accent-deep: var(--color-accent-deep);
+  --color-band-from: var(--color-band-from);
+  --color-band-to: var(--color-band-to);
+  --color-accent-warm: var(--color-accent-warm);
+  --color-accent-cool: var(--color-accent-cool);
+  --color-navy: var(--color-navy);
+  --color-purple: var(--color-purple);
+  --color-off-white: var(--color-off-white);
+  --color-pink: var(--color-pink);
+  --color-hero-from: var(--color-hero-from);
+  --color-hero-to: var(--color-hero-to);
+  --color-hero-edge: var(--color-hero-edge);
+  --shadow-card: var(--shadow-card);
+  --shadow-menu: var(--shadow-menu);
+}
+
+/* Gradient surfaces. Used sparingly: sidebar, page header band, the meeting
+   recorder hero, primary buttons and the onboarding backdrop. Setting rows and
+   cards stay flat. */
+
+/* Brand sweep, deep purple into navy. Always dark; pair with .scope-dark. */
+@utility bg-brand-gradient {
+  background-image: linear-gradient(
+    180deg,
+    var(--color-purple),
+    var(--color-navy)
+  );
+}
+
+/* Meeting recorder hero. Always dark, on its own sweep so it does not
+   dissolve into the page in the dark theme. */
+@utility bg-hero-gradient {
+  background-image: linear-gradient(
+    160deg,
+    var(--color-hero-from),
+    var(--color-hero-to)
+  );
+}
+
+/* Page header band, theme-following. */
+@utility bg-band-gradient {
+  background-image: linear-gradient(
+    180deg,
+    var(--color-band-from),
+    var(--color-band-to)
+  );
+}
+
+/* Thin coral-to-orange rule that tops the header band. */
+@utility bg-accent-rule {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-background-ui),
+    var(--color-accent-warm)
+  );
+}
+
+/* Primary fill: the dark coral deepening slightly towards red. The off-white
+   on-accent label clears AA on both ends (4.56:1 and 5.41:1). */
+@utility bg-accent-gradient {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-background-ui),
+    var(--color-accent-deep)
+  );
 }
 
 :root {
-  /* Typography */
+  /* Typography — Source Sans Pro (Kantega brand), falling back to the
+     platform sans-serif before the bundled font loads. */
+  font-family:
+    "Source Sans Pro",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 15px;
   line-height: 24px;
   font-weight: 400;
@@ -35,11 +119,6 @@
     transparent 70%
   );
 
-  /* Log console surface — a subtle shade off the app background so the live log
-     viewer reads as a distinct console. In light mode this is a faint gray code
-     block (matching other surfaces); the dark theme overrides it below. */
-  --color-log-surface: color-mix(in srgb, var(--color-background), black 6%);
-
   /* Apply colors */
   color: var(--color-text);
   background-color: var(--color-background);
@@ -54,11 +133,10 @@
   text-align: center;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Just a bit darker than the (already dark) background, keeping its warm tint */
-    --color-log-surface: color-mix(in srgb, var(--color-background), black 15%);
-  }
+/* Keep onboarding centered when classic scrollbars consume layout space.
+   Overlay scrollbars do not reserve a gutter, so this has no effect on them. */
+:root[data-onboarding-active] {
+  scrollbar-gutter: stable both-edges;
 }
 
 /* macOS - tint native overlay scrollbar thumb */
@@ -66,17 +144,19 @@
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
-/* Custom Scrollbar - only on Windows/Linux; macOS uses native overlay scrollbars */
-:root:not([data-platform="macos"]) ::-webkit-scrollbar {
+/* Custom Scrollbar. macOS uses overlay scrollbars by default, but switches to
+   persistent legacy ones when a standard external mouse is connected, so these
+   must not be gated on platform. */
+::-webkit-scrollbar {
   width: 14px;
   height: 14px;
 }
 
-:root:not([data-platform="macos"]) ::-webkit-scrollbar-track {
+::-webkit-scrollbar-track {
   background: transparent;
 }
 
-:root:not([data-platform="macos"]) ::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-thumb);
   border-radius: 20px;
   border: 3px solid transparent;
@@ -86,7 +166,7 @@
   min-height: 32px;
 }
 
-:root:not([data-platform="macos"]) ::-webkit-scrollbar-thumb:hover {
+::-webkit-scrollbar-thumb:hover {
   background-color: var(--scrollbar-thumb-hover);
 }
 
@@ -94,6 +174,41 @@
   .text-stroke {
     -webkit-text-stroke: 2px var(--color-text-stroke);
   }
+}
+
+/* Range inputs (Slider, AudioPlayer scrubber). The track is painted per
+   component with a gradient, but the thumb was left to the user agent, which
+   draws it in the platform accent color — a system blue dot in an otherwise
+   pink-and-purple app, in both themes. */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-background-ui);
+  border: 2px solid var(--color-background);
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-background-ui);
+  border: 2px solid var(--color-background);
+  cursor: pointer;
+}
+
+input[type="range"]:disabled::-webkit-slider-thumb,
+input[type="range"]:disabled::-moz-range-thumb {
+  cursor: not-allowed;
+}
+
+/* Checkboxes and other native form controls pick up the brand accent rather
+   than the platform blue. */
+:root {
+  accent-color: var(--color-background-ui);
 }
 
 .logo-primary {

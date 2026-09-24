@@ -3,24 +3,22 @@
 //! `catalog.json` is generated at build time by `scripts/gen_catalog.py` from the
 //! `handy-computer` Hugging Face org (card `transcribe_cpp` capabilities +
 //! benchmarks, a GGUF header probe for name/params, and local curation for the
-//! recommended set). It is compiled into the binary so Handy ships a complete
-//! model list with zero network access.
+//! recommended set). It is compiled into the binary so Kandy ships a complete
+//! model list with zero network access. Kandy is Whisper-only, so the generator
+//! and this file only ever carry Whisper-family entries.
 //!
-//! Each entry is normalised into a [`ModelDescriptor`] — the same source-agnostic
-//! shape every other producer (HF discovery, on-disk scans, the legacy table)
-//! yields — so the catalog is "just another producer". Its explicit `capabilities`
-//! map becomes a [`CapabilityProbe`] with confident `Some(..)` values; the runtime
-//! `GgufHeaderProber` is the same shape with `None` where a header omits a key,
-//! which is why the two are interchangeable (the catalog is a baked probe).
+//! Each entry is normalised into a [`ModelDescriptor`]. Its explicit
+//! `capabilities` map becomes a [`CapabilityProbe`] with confident `Some(..)`
+//! values; the runtime GGUF header probe is the same shape with `None` where a
+//! header omits a key, which is why the two are interchangeable (the catalog is
+//! a baked probe).
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
-use once_cell::sync::Lazy;
 use serde::Deserialize;
 
-use crate::managers::model::{
-    default_quant_file, EngineType, ModelDescriptor, ModelSource, QuantFile,
-};
+use crate::managers::model::{default_quant_file, ModelDescriptor, ModelSource, QuantFile};
 use crate::managers::model_capabilities::{CapabilityProbe, Compatibility};
 
 #[derive(Deserialize)]
@@ -61,13 +59,11 @@ struct CatalogModel {
     recommended: bool,
 }
 
+/// Only the capabilities the app reads; serde ignores the rest (`streaming`,
+/// `timestamps`).
 #[derive(Deserialize)]
 struct CatalogCaps {
-    streaming: bool,
-    translate: bool,
     lang_detect: bool,
-    // `timestamps` (a string enum) is present in the catalog but has no
-    // `CapabilityProbe` field yet — wire it through when the probe gains one.
 }
 
 impl From<&CatalogModel> for ModelDescriptor {
@@ -90,15 +86,11 @@ impl From<&CatalogModel> for ModelDescriptor {
             },
             name: m.name.clone(),
             description: m.description.clone(),
-            engine_type: EngineType::TranscribeCpp,
             caps: CapabilityProbe {
                 verdict: Compatibility::Compatible, // curated org models we ship support for
                 display_name: None,
                 architecture: m.architecture.clone(),
-                variant: None,
                 languages: Some(m.languages.clone()),
-                supports_streaming: Some(m.capabilities.streaming),
-                supports_translation: Some(m.capabilities.translate),
                 supports_language_detect: Some(m.capabilities.lang_detect),
             },
             files: m.files.clone(),
@@ -114,14 +106,14 @@ impl From<&CatalogModel> for ModelDescriptor {
 
 /// The raw parsed catalog. Kept alive (not consumed) so mirror metadata that
 /// deliberately stays out of [`ModelDescriptor`] can be looked up separately.
-static ROOT: Lazy<CatalogRoot> = Lazy::new(|| {
+static ROOT: LazyLock<CatalogRoot> = LazyLock::new(|| {
     serde_json::from_str(include_str!("catalog.json"))
         .expect("bundled catalog.json is valid JSON matching the catalog schema")
 });
 
 /// The bundled catalog, parsed once and normalised into descriptors.
-pub static CATALOG: Lazy<Vec<ModelDescriptor>> =
-    Lazy::new(|| ROOT.models.iter().map(ModelDescriptor::from).collect());
+pub static CATALOG: LazyLock<Vec<ModelDescriptor>> =
+    LazyLock::new(|| ROOT.models.iter().map(ModelDescriptor::from).collect());
 
 /// A mirror copy of a catalog model's default file, with the expected content
 /// hash for end-to-end verification. Mirrors are untrusted bit-pipes: the
@@ -181,8 +173,7 @@ pub fn file_in_catalog(
     filename: &str,
     repo_id: Option<&str>,
 ) -> Option<(&'static ModelDescriptor, &'static QuantFile)> {
-    let catalog: &'static Vec<ModelDescriptor> = Lazy::force(&CATALOG);
-    catalog.iter().find_map(|d| {
+    CATALOG.iter().find_map(|d| {
         if let Some(repo) = repo_id {
             match &d.source {
                 ModelSource::HuggingFace { repo_id: r, .. } if r == repo => {}
@@ -198,7 +189,7 @@ pub fn file_in_catalog(
 
 /// Editorial recommended rank keyed by descriptor id (the same id the model
 /// registry uses). Built once from the catalog.
-static RANK_BY_ID: Lazy<HashMap<String, u32>> = Lazy::new(|| {
+static RANK_BY_ID: LazyLock<HashMap<String, u32>> = LazyLock::new(|| {
     CATALOG
         .iter()
         .filter_map(|d| d.recommended_rank.map(|r| (d.id.clone(), r)))
@@ -231,14 +222,18 @@ mod tests {
         assert_eq!(before, ids.len(), "catalog descriptor ids must be unique");
     }
 
+    /// Kandy ships Whisper-family models only — Norwegian is not covered by the
+    /// other transcribe-cpp architectures.
     #[test]
-    fn pure_diarization_models_are_not_downloadable() {
-        assert!(
-            CATALOG
-                .iter()
-                .all(|model| model.caps.architecture.as_deref() != Some("sortformer")),
-            "Sortformer produces speaker segments, not transcription text"
-        );
+    fn catalog_is_whisper_only() {
+        for model in CATALOG.iter() {
+            assert_eq!(
+                model.caps.architecture.as_deref(),
+                Some("whisper"),
+                "{}: non-Whisper models must not ship in the catalog",
+                model.id
+            );
+        }
     }
 
     #[test]

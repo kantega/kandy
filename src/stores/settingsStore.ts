@@ -4,8 +4,8 @@ import { listen } from "@tauri-apps/api/event";
 import type {
   AppSettings as Settings,
   AudioDevice,
-  TranscribeAcceleratorSetting,
-  OrtAcceleratorSetting,
+  ShortcutActivation,
+  VadBackend,
 } from "@/bindings";
 import { commands } from "@/bindings";
 
@@ -16,8 +16,6 @@ interface SettingsStore {
   isUpdating: Record<string, boolean>;
   audioDevices: AudioDevice[];
   outputDevices: AudioDevice[];
-  customSounds: { start: boolean; stop: boolean };
-  postProcessModelOptions: Record<string, string[]>;
 
   // Actions
   initialize: () => Promise<void>;
@@ -34,25 +32,6 @@ interface SettingsStore {
   resetBinding: (id: string) => Promise<void>;
   getSetting: <K extends keyof Settings>(key: K) => Settings[K] | undefined;
   isUpdatingKey: (key: string) => boolean;
-  playTestSound: (soundType: "start" | "stop") => Promise<void>;
-  checkCustomSounds: () => Promise<void>;
-  setPostProcessProvider: (providerId: string) => Promise<void>;
-  updatePostProcessSetting: (
-    settingType: "base_url" | "api_key" | "model",
-    providerId: string,
-    value: string,
-  ) => Promise<void>;
-  updatePostProcessBaseUrl: (
-    providerId: string,
-    baseUrl: string,
-  ) => Promise<void>;
-  updatePostProcessApiKey: (
-    providerId: string,
-    apiKey: string,
-  ) => Promise<void>;
-  updatePostProcessModel: (providerId: string, model: string) => Promise<void>;
-  fetchPostProcessModels: (providerId: string) => Promise<string[]>;
-  setPostProcessModelOptions: (providerId: string, models: string[]) => void;
 
   // Internal state setters
   setSettings: (settings: Settings | null) => void;
@@ -61,7 +40,6 @@ interface SettingsStore {
   setUpdating: (key: string, updating: boolean) => void;
   setAudioDevices: (devices: AudioDevice[]) => void;
   setOutputDevices: (devices: AudioDevice[]) => void;
-  setCustomSounds: (sounds: { start: boolean; stop: boolean }) => void;
 }
 
 // Note: Default settings are now fetched from Rust via commands.getDefaultSettings()
@@ -76,23 +54,18 @@ const DEFAULT_AUDIO_DEVICE: AudioDevice = {
 const settingUpdaters: {
   [K in keyof Settings]?: (value: Settings[K]) => Promise<unknown>;
 } = {
-  always_on_microphone: (value) =>
-    commands.updateMicrophoneMode(value as boolean),
   audio_feedback: (value) =>
     commands.changeAudioFeedbackSetting(value as boolean),
   audio_feedback_volume: (value) =>
     commands.changeAudioFeedbackVolumeSetting(value as number),
   sound_theme: (value) => commands.changeSoundThemeSetting(value as string),
-  start_hidden: (value) => commands.changeStartHiddenSetting(value as boolean),
   autostart_enabled: (value) =>
     commands.changeAutostartSetting(value as boolean),
-  update_checks_enabled: (value) =>
-    commands.changeUpdateChecksSetting(value as boolean),
-  show_whats_new_on_update: (value) =>
-    commands.changeShowWhatsNewOnUpdateSetting(value as boolean),
-  whats_new_last_seen_version: (value) =>
-    commands.changeWhatsNewLastSeenVersionSetting(value as string),
-  push_to_talk: (value) => commands.changePttSetting(value as boolean),
+  shortcut_activation: (value) =>
+    commands.changeShortcutActivationSetting(value as ShortcutActivation),
+  hold_threshold_ms: (value) =>
+    commands.changeHoldThresholdSetting(value as number),
+  vad_backend: (value) => commands.changeVadBackendSetting(value as VadBackend),
   selected_microphone: (value) =>
     commands.setSelectedMicrophone(
       (value as string) === "Default" || value === null
@@ -107,75 +80,40 @@ const settingUpdaters: {
       throw new Error(result.error);
     }
   },
-  clamshell_microphone: (value) =>
-    commands.setClamshellMicrophone(
-      (value as string) === "Default" ? "default" : (value as string),
-    ),
   selected_output_device: (value) =>
     commands.setSelectedOutputDevice(
       (value as string) === "Default" || value === null
         ? "default"
         : (value as string),
     ),
-  recording_retention_period: (value) =>
-    commands.updateRecordingRetentionPeriod(value as string),
-  translate_to_english: (value) =>
-    commands.changeTranslateToEnglishSetting(value as boolean),
   selected_language: (value) =>
     commands.changeSelectedLanguageSetting(value as string),
   overlay_position: (value) =>
     commands.changeOverlayPositionSetting(value as string),
-  debug_mode: (value) => commands.changeDebugModeSetting(value as boolean),
   custom_words: (value) => commands.updateCustomWords(value as string[]),
-  word_correction_threshold: (value) =>
-    commands.changeWordCorrectionThresholdSetting(value as number),
-  paste_delay_ms: (value) =>
-    commands.changePasteDelayMsSetting(value as number),
-  paste_delay_after_ms: (value) =>
-    commands.changePasteDelayAfterMsSetting(value as number),
-  reliable_paste: (value) =>
-    commands.changeReliablePasteSetting(value as boolean),
   paste_method: (value) => commands.changePasteMethodSetting(value as string),
-  typing_tool: (value) => commands.changeTypingToolSetting(value as string),
-  external_script_path: (value) =>
-    commands.changeExternalScriptPathSetting(value as string | null),
-  clipboard_handling: (value) =>
-    commands.changeClipboardHandlingSetting(value as string),
   auto_submit: (value) => commands.changeAutoSubmitSetting(value as boolean),
   auto_submit_key: (value) =>
     commands.changeAutoSubmitKeySetting(value as string),
-  history_limit: (value) => commands.updateHistoryLimit(value as number),
   post_process_enabled: (value) =>
     commands.changePostProcessEnabledSetting(value as boolean),
-  post_process_selected_prompt_id: (value) =>
-    commands.setPostProcessSelectedPrompt(value as string),
+  post_process_prompt: (value) =>
+    commands.changePostProcessPromptSetting(value as string),
+  llm_model: (value) => commands.changeLlmModelSetting(value as string),
   mute_while_recording: (value) =>
     commands.changeMuteWhileRecordingSetting(value as boolean),
-  append_trailing_space: (value) =>
-    commands.changeAppendTrailingSpaceSetting(value as boolean),
-  log_level: (value) => commands.setLogLevel(value as any),
   app_language: (value) => commands.changeAppLanguageSetting(value as string),
   theme: (value) => commands.changeThemeSetting(value as string),
-  experimental_enabled: (value) =>
-    commands.changeExperimentalEnabledSetting(value as boolean),
-  lazy_stream_close: (value) =>
-    commands.changeLazyStreamCloseSetting(value as boolean),
   overlay_style: (value) => commands.changeOverlayStyleSetting(value as string),
   vad_enabled: (value) => commands.changeVadEnabledSetting(value as boolean),
   filler_word_removal_enabled: (value) =>
     commands.changeFillerWordRemovalEnabledSetting(value as boolean),
-  show_tray_icon: (value) =>
-    commands.changeShowTrayIconSetting(value as boolean),
-  transcribe_accelerator: (value) =>
-    commands.changeTranscribeAcceleratorSetting(
-      value as TranscribeAcceleratorSetting,
-    ),
-  ort_accelerator: (value) =>
-    commands.changeOrtAcceleratorSetting(value as OrtAcceleratorSetting),
-  transcribe_gpu_device: (value) =>
-    commands.changeTranscribeGpuDevice(value as string | null),
-  extra_recording_buffer_ms: (value) =>
-    commands.changeExtraRecordingBufferSetting(value as number),
+  meeting_summary_prompt: (value) =>
+    commands.changeMeetingSummaryPromptSetting(value as string),
+  meeting_auto_summarize: (value) =>
+    commands.changeMeetingAutoSummarizeSetting(value as boolean),
+  meeting_auto_title: (value) =>
+    commands.changeMeetingAutoTitleSetting(value as boolean),
 };
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -186,8 +124,6 @@ export const useSettingsStore = create<SettingsStore>()(
     isUpdating: {},
     audioDevices: [],
     outputDevices: [],
-    customSounds: { start: false, stop: false },
-    postProcessModelOptions: {},
 
     // Internal setters
     setSettings: (settings) => set({ settings }),
@@ -199,7 +135,6 @@ export const useSettingsStore = create<SettingsStore>()(
       })),
     setAudioDevices: (audioDevices) => set({ audioDevices }),
     setOutputDevices: (outputDevices) => set({ outputDevices }),
-    setCustomSounds: (customSounds) => set({ customSounds }),
 
     // Getters
     getSetting: (key) => get().settings?.[key],
@@ -213,9 +148,7 @@ export const useSettingsStore = create<SettingsStore>()(
           const settings = result.data;
           const normalizedSettings: Settings = {
             ...settings,
-            always_on_microphone: settings.always_on_microphone ?? false,
             selected_microphone: settings.selected_microphone ?? "Default",
-            clamshell_microphone: settings.clamshell_microphone ?? "Default",
             selected_output_device:
               settings.selected_output_device ?? "Default",
           };
@@ -272,24 +205,6 @@ export const useSettingsStore = create<SettingsStore>()(
       }
     },
 
-    // Play a test sound
-    playTestSound: async (soundType: "start" | "stop") => {
-      try {
-        await commands.playTestSound(soundType);
-      } catch (error) {
-        console.error(`Failed to play test sound (${soundType}):`, error);
-      }
-    },
-
-    checkCustomSounds: async () => {
-      try {
-        const sounds = await commands.checkCustomSounds();
-        get().setCustomSounds(sounds);
-      } catch (error) {
-        console.error("Failed to check custom sounds:", error);
-      }
-    },
-
     // Update a specific setting
     updateSetting: async <K extends keyof Settings>(
       key: K,
@@ -315,7 +230,11 @@ export const useSettingsStore = create<SettingsStore>()(
       } catch (error) {
         console.error(`Failed to update setting ${String(key)}:`, error);
         if (settings) {
-          set({ settings: { ...settings, [key]: originalValue } });
+          set((state) => ({
+            settings: state.settings
+              ? { ...state.settings, [key]: originalValue }
+              : state.settings,
+          }));
         }
       } finally {
         setUpdating(updateKey, false);
@@ -414,171 +333,6 @@ export const useSettingsStore = create<SettingsStore>()(
       }
     },
 
-    setPostProcessProvider: async (providerId) => {
-      const {
-        settings,
-        setUpdating,
-        refreshSettings,
-        setPostProcessModelOptions,
-      } = get();
-      const updateKey = "post_process_provider_id";
-      const previousId = settings?.post_process_provider_id ?? null;
-
-      setUpdating(updateKey, true);
-
-      if (settings) {
-        set((state) => ({
-          settings: state.settings
-            ? { ...state.settings, post_process_provider_id: providerId }
-            : null,
-        }));
-      }
-
-      // Clear cached model options for the new provider so the dropdown
-      // doesn't show stale models from a previous fetch or base_url.
-      setPostProcessModelOptions(providerId, []);
-
-      try {
-        await commands.setPostProcessProvider(providerId);
-        await refreshSettings();
-      } catch (error) {
-        console.error("Failed to set post-process provider:", error);
-        if (previousId !== null) {
-          set((state) => ({
-            settings: state.settings
-              ? { ...state.settings, post_process_provider_id: previousId }
-              : null,
-          }));
-        }
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    // Generic updater for post-processing provider settings
-    updatePostProcessSetting: async (
-      settingType: "base_url" | "api_key" | "model",
-      providerId: string,
-      value: string,
-    ) => {
-      const { setUpdating, refreshSettings } = get();
-      const updateKey = `post_process_${settingType}:${providerId}`;
-
-      setUpdating(updateKey, true);
-
-      try {
-        if (settingType === "base_url") {
-          await commands.changePostProcessBaseUrlSetting(providerId, value);
-        } else if (settingType === "api_key") {
-          await commands.changePostProcessApiKeySetting(providerId, value);
-        } else if (settingType === "model") {
-          await commands.changePostProcessModelSetting(providerId, value);
-        }
-        await refreshSettings();
-      } catch (error) {
-        console.error(
-          `Failed to update post-process ${settingType.replace("_", " ")}:`,
-          error,
-        );
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    updatePostProcessBaseUrl: async (providerId, baseUrl) => {
-      const { setUpdating, refreshSettings } = get();
-      const updateKey = `post_process_base_url:${providerId}`;
-
-      setUpdating(updateKey, true);
-
-      try {
-        // Persist the new base URL first.
-        const urlResult = await commands.changePostProcessBaseUrlSetting(
-          providerId,
-          baseUrl,
-        );
-        if (urlResult.status === "error") {
-          console.error("Failed to persist base URL:", urlResult.error);
-          return;
-        }
-
-        // Reset the stored model since the previous value is almost certainly
-        // invalid for the new endpoint (e.g. switching Custom from Groq to
-        // Cerebras). Only proceed if the reset succeeds.
-        const modelResult = await commands.changePostProcessModelSetting(
-          providerId,
-          "",
-        );
-        if (modelResult.status === "error") {
-          console.error("Failed to reset model setting:", modelResult.error);
-          return;
-        }
-
-        // Clear cached model options only after both backend writes succeed.
-        set((state) => ({
-          postProcessModelOptions: {
-            ...state.postProcessModelOptions,
-            [providerId]: [],
-          },
-        }));
-
-        // Single refresh after both backend writes.
-        await refreshSettings();
-      } catch (error) {
-        console.error("Failed to update post-process base URL:", error);
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    updatePostProcessApiKey: async (providerId, apiKey) => {
-      // Clear cached models when API key changes - user should click refresh after
-      set((state) => ({
-        postProcessModelOptions: {
-          ...state.postProcessModelOptions,
-          [providerId]: [],
-        },
-      }));
-      return get().updatePostProcessSetting("api_key", providerId, apiKey);
-    },
-
-    updatePostProcessModel: async (providerId, model) => {
-      return get().updatePostProcessSetting("model", providerId, model);
-    },
-
-    fetchPostProcessModels: async (providerId) => {
-      const updateKey = `post_process_models_fetch:${providerId}`;
-      const { setUpdating, setPostProcessModelOptions } = get();
-
-      setUpdating(updateKey, true);
-
-      try {
-        // Call Tauri backend command instead of fetch
-        const result = await commands.fetchPostProcessModels(providerId);
-        if (result.status === "ok") {
-          setPostProcessModelOptions(providerId, result.data);
-          return result.data;
-        } else {
-          console.error("Failed to fetch models:", result.error);
-          return [];
-        }
-      } catch (error) {
-        console.error("Failed to fetch models:", error);
-        // Don't cache empty array on error - let user retry
-        return [];
-      } finally {
-        setUpdating(updateKey, false);
-      }
-    },
-
-    setPostProcessModelOptions: (providerId, models) =>
-      set((state) => ({
-        postProcessModelOptions: {
-          ...state.postProcessModelOptions,
-          [providerId]: models,
-        },
-      })),
-
     // Load default settings from Rust
     loadDefaultSettings: async () => {
       try {
@@ -595,17 +349,13 @@ export const useSettingsStore = create<SettingsStore>()(
 
     // Initialize everything
     initialize: async () => {
-      const { refreshSettings, checkCustomSounds, loadDefaultSettings } = get();
+      const { refreshSettings, loadDefaultSettings } = get();
 
       // Note: Audio devices are NOT refreshed here. The frontend (App.tsx)
       // is responsible for calling refreshAudioDevices/refreshOutputDevices
       // after onboarding completes. This avoids triggering permission dialogs
       // on macOS before the user is ready.
-      await Promise.all([
-        loadDefaultSettings(),
-        refreshSettings(),
-        checkCustomSounds(),
-      ]);
+      await Promise.all([loadDefaultSettings(), refreshSettings()]);
 
       // Re-fetch settings when the backend changes them (e.g. language
       // reset during model switch). The backend is the source of truth.

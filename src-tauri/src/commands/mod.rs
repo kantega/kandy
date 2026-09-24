@@ -1,9 +1,10 @@
 pub mod audio;
 pub mod history;
+pub mod meeting;
 pub mod models;
-pub mod transcription;
+pub mod settings;
 
-use crate::settings::{get_settings, write_settings, AppSettings, LogLevel};
+use crate::settings::{get_settings, AppSettings};
 use crate::utils::cancel_current_operation;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
@@ -12,12 +13,6 @@ use tauri_plugin_opener::OpenerExt;
 #[specta::specta]
 pub fn cancel_operation(app: AppHandle) {
     cancel_current_operation(&app);
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn is_portable() -> bool {
-    crate::portable::is_portable()
 }
 
 #[tauri::command]
@@ -48,24 +43,6 @@ pub fn get_log_dir_path(app: AppHandle) -> Result<String, String> {
         .map_err(|e| format!("Failed to get log directory: {}", e))?;
 
     Ok(log_dir.to_string_lossy().to_string())
-}
-
-#[specta::specta]
-#[tauri::command]
-pub fn set_log_level(app: AppHandle, level: LogLevel) -> Result<(), String> {
-    let tauri_log_level: tauri_plugin_log::LogLevel = level.into();
-    let log_level: log::Level = tauri_log_level.into();
-    // Update the file log level atomic so the filter picks up the new level
-    crate::FILE_LOG_LEVEL.store(
-        log_level.to_level_filter() as u8,
-        std::sync::atomic::Ordering::Relaxed,
-    );
-
-    let mut settings = get_settings(&app);
-    settings.log_level = level;
-    write_settings(&app, settings);
-
-    Ok(())
 }
 
 #[specta::specta]
@@ -110,21 +87,6 @@ pub fn open_app_data_dir(app: AppHandle) -> Result<(), String> {
         .map_err(|e| format!("Failed to open app data directory: {}", e))?;
 
     Ok(())
-}
-
-/// Check if Apple Intelligence is available on this device.
-/// Called by the frontend when the user selects Apple Intelligence provider.
-#[specta::specta]
-#[tauri::command]
-pub fn check_apple_intelligence_available() -> bool {
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    {
-        crate::apple_intelligence::check_apple_intelligence_availability()
-    }
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-    {
-        false
-    }
 }
 
 /// Try to initialize Enigo (keyboard/mouse simulation).

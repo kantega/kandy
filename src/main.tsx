@@ -1,6 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { platform } from "@tauri-apps/plugin-os";
+// Source Sans Pro (Kantega brand typography), bundled locally for offline use.
+import "@fontsource/source-sans-pro/400.css";
+import "@fontsource/source-sans-pro/600.css";
 import App from "./App";
 import { installCompatShims } from "./lib/compat";
 import {
@@ -24,7 +27,11 @@ import "./i18n";
 
 // Initialize model store (loads models and sets up event listeners)
 import { useModelStore } from "./stores/modelStore";
+import { useSettingsStore } from "./stores/settingsStore";
 useModelStore.getState().initialize();
+// Settings store: one-time load + backend event listeners. Initialised here
+// rather than in useSettings() so the listeners are registered exactly once.
+useSettingsStore.getState().initialize();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

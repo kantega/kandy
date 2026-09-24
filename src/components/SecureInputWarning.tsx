@@ -4,16 +4,18 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { ExternalLink, TriangleAlert, X } from "lucide-react";
 import { commands, type SecureInputStatus } from "@/bindings";
+import { Button } from "./ui/Button";
+import { IconButton } from "./ui/IconButton";
 
 // Detailed remediation steps live in the docs rather than in the banner
 export const SECURE_INPUT_HELP_URL =
-  "https://handy.computer/docs/troubleshooting#shortcuts-stopped-working-on-macos-secure-input";
+  "https://kandy.kantega.no/docs/troubleshooting#shortcuts-stopped-working-on-macos-secure-input";
 
 /**
  * Compact warning banner shown while macOS Secure Input is stuck on.
  *
  * Secure Input (password fields, Terminal's "Secure Keyboard Entry", a stuck
- * loginwindow) blocks key events from reaching Handy's keyboard listener, so
+ * loginwindow) blocks key events from reaching Kandy's keyboard listener, so
  * keyed shortcuts silently stop firing (issue #1578). The backend monitor
  * emits `secure-input-changed` on state transitions; `sustained` filters out
  * the normal momentary activation from focusing a password field.
@@ -96,22 +98,22 @@ const SecureInputWarning: React.FC = () => {
           {message}
         </p>
         <div className="flex shrink-0 items-center gap-1">
-          <button
+          <Button
             onClick={() => openUrl(SECURE_INPUT_HELP_URL)}
-            className="cursor-pointer whitespace-nowrap rounded px-2 py-1.5 text-sm font-medium text-text hover:text-warning focus:outline-none focus:ring-1 focus:ring-warning"
+            variant="warning"
+            size="sm"
+            className="flex items-center gap-1 whitespace-nowrap"
           >
-            <span className="flex items-center gap-1 border-b border-current leading-4">
-              {t("secureInput.learnMore")}
-              <ExternalLink className="h-3.5 w-3.5" />
-            </span>
-          </button>
-          <button
+            {t("secureInput.learnMore")}
+            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+          <IconButton
+            label={t("secureInput.dismiss")}
             onClick={() => setDismissed(true)}
-            aria-label={t("secureInput.dismiss")}
-            className="cursor-pointer rounded p-1.5 text-mid-gray hover:bg-warning/15 hover:text-warning focus:outline-none focus:ring-1 focus:ring-warning"
+            className="hover:bg-warning/15 hover:text-warning focus-visible:ring-warning"
           >
             <X className="h-4 w-4" />
-          </button>
+          </IconButton>
         </div>
       </div>
     </div>

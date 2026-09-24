@@ -1,31 +1,145 @@
-/* Handy Colors */
+/* Kandy Colors — Kantega visual identity ("Frisk blåbær") */
 
 :root {
   /* Palette source of truth. Each themed color is defined once as a
      light/dark pair; the active tokens below and the `data-theme` overrides
-     in App.css reference these, so a hex value lives in exactly one place. */
-  --light-color-text: #0f0f0f;
-  --light-color-background: #fbfbfb;
-  --light-color-logo-primary: #faa2ca;
-  --light-color-logo-stroke: #382731;
+     further down reference these, so a hex value lives in exactly one place.
 
-  --dark-color-text: #fbfbfb;
-  --dark-color-background: #2c2b29;
-  --dark-color-logo-primary: #f28cbb;
-  --dark-color-logo-stroke: #fad1ed;
+     Kantega brand: deep purple (#27003D) for dark surfaces, warm off-white
+     (#FFF8FC) for light surfaces, coral (#EE3A64) as the primary accent.
 
-  /* Semantic status colors. First used by SecureInputWarning; intended to
-     replace the ad-hoc yellow-500/red-500 usages (e.g. ui/Alert.tsx) over
-     time so status styling is themeable from one place. */
-  --light-color-warning: #d97706;
-  --light-color-error: #dc2626;
-  --dark-color-warning: #fbbf24;
-  --dark-color-error: #f87171;
+     Contrast: every pair below is checked by `bun scripts/check-contrast.ts`
+     against WCAG 2.1 AA (4.5:1 body text, 3:1 large text and UI boundaries) in
+     *both* themes. Change a value here, re-run the script. */
+  --light-color-text: #27003d;
+  --light-color-background: #fff8fc;
+  --light-color-logo-primary: #ee3a64;
+  --light-color-logo-stroke: #27003d;
 
-  /* Tokens that do not change between light and dark */
-  --color-background-ui: #da5893;
-  --color-text-stroke: #f6f6f6;
-  --color-mid-gray: #808080;
+  --dark-color-text: #fff8fc;
+  --dark-color-background: #27003d;
+  --dark-color-logo-primary: #ff507e;
+  --dark-color-logo-stroke: #fff8fc;
+
+  /* Secondary/tertiary text and hairline borders. Light needs a genuinely
+     dark gray (tinted towards the brand purple) to clear AA for body copy on
+     the off-white page; the brand grey #a5a5a5 only reaches 2.4:1 there but
+     clears AA on the purple surface, so dark keeps it. */
+  --light-color-mid-gray: #5f5b66;
+  --dark-color-mid-gray: #a5a5a5;
+
+  /* Semantic status colors — icons, hairlines and status text.
+     The light variants are deliberately darker than their dark-theme
+     counterparts: a hue that clears 4.5:1 on the deep purple surface is
+     nowhere near that on the off-white one. */
+  --light-color-warning: #8a5200;
+  --dark-color-warning: #f49727;
+  --light-color-error: #b3123a;
+  --dark-color-error: #ff507e;
+  --light-color-success: #0f6b45;
+  --dark-color-success: #34d399;
+  --light-color-info: #1259a8;
+  --dark-color-info: #93c5fd;
+
+  /* Destructive button surface. Kept apart from --color-error so the
+     destructive action never collapses into the same coral as the primary
+     button: in dark it is a redder tone than the pink accent. */
+  --light-color-danger: #b3123a;
+  --dark-color-danger: #e5484d;
+  /* Label on a --color-danger fill. White clears 6.85:1 on the light deep red
+     but only 3.91:1 on the dark one, where the brand purple reaches 4.65:1. */
+  --light-color-on-danger: #ffffff;
+  --dark-color-on-danger: #27003d;
+
+  /* Console/code surface behind the live log viewer — a step off the app
+     background so it reads as a distinct block. Written out rather than
+     derived with color-mix so a single active token can be re-pointed by the
+     `data-theme` overrides below (color-mix on --color-background would
+     otherwise track the media query only). */
+  --light-color-log-surface: #f0e9ed;
+  --dark-color-log-surface: #210034;
+
+  /* Modal backdrop. Plain black at 50% disappears against the dark purple
+     app, so dark goes deeper while light tints towards the brand purple. */
+  --light-color-scrim: rgba(39, 0, 61, 0.5);
+  --dark-color-scrim: rgba(0, 0, 0, 0.6);
+
+  /* Dropdown/menu elevation — a soft shadow is invisible on a dark surface. */
+  --light-shadow-menu: 0 10px 30px rgba(15, 15, 15, 0.2);
+  --dark-shadow-menu: 0 10px 30px rgba(0, 0, 0, 0.55);
+
+  /* Card surface (SettingsGroup and friends). Light: pure white cards on the
+     warm off-white page. Dark: navy-tinted cards on the purple page, mixed
+     towards the background so the step stays soft. Light cards float on a
+     shadow; dark cards get a hairline instead, since a shadow disappears on
+     the purple. */
+  --light-color-surface: #ffffff;
+  --dark-color-surface: #1d1a4a;
+  --light-color-card-border: transparent;
+  --dark-color-card-border: color-mix(in srgb, #a5a5a5 25%, transparent);
+  --light-shadow-card:
+    0 1px 2px rgba(39, 0, 61, 0.06), 0 6px 18px rgba(39, 0, 61, 0.08);
+  --dark-shadow-card: none;
+
+  /* Hairline on the edge of a gradient surface (sidebar, header band, hero,
+     onboarding cards) where it meets the page or another gradient. Tinted
+     towards the text color of its own scope so it reads on either theme. */
+  --light-color-edge: rgba(39, 0, 61, 0.12);
+  --dark-color-edge: rgba(255, 248, 252, 0.18);
+
+  /* Page header band. Light: white fading into the page off-white. Dark: a
+     purple lifted off the page so the sticky band still reads as a band with
+     content scrolling under it, sweeping into the shared navy. */
+  --light-color-band-from: #ffffff;
+  --light-color-band-to: #fff8fc;
+  --dark-color-band-from: #2f0a4a;
+  --dark-color-band-to: #19254f;
+
+  /* Secondary accents. Warm = Kantega orange, cool = Kantega teal/cyan. Both
+     are UI-level accents (rules, icons, status dots) and clear 3:1 against the
+     page in their theme; the light variants are darkened for that reason. */
+  --light-color-accent-warm: #c96a00;
+  --dark-color-accent-warm: #f49727;
+  --light-color-accent-cool: #028ea7;
+  --dark-color-accent-cool: #06b3c6;
+  --light-color-navy: #19254f;
+  --dark-color-navy: #19254f;
+
+  /* Tokens that genuinely do not change between light and dark */
+
+  /* Fixed brand colors for surfaces that are always dark (sidebar, hero
+     recorder, onboarding) regardless of the active theme. */
+  --color-purple: #27003d;
+  --color-off-white: #fff8fc;
+  /* Light pink: recording pulse and drag-target accent on the dark hero. */
+  --color-pink: #ff507e;
+
+  /* Meeting recorder hero. Always dark, like the sidebar, but on its own
+     sweep: the sidebar starts at the page purple (#27003D), which in the dark
+     theme is the page itself, so the hero would dissolve into the background.
+     It starts a step lighter and is finished with a brighter hairline than the
+     ordinary --color-edge. */
+  --color-hero-from: #3a1156;
+  --color-hero-to: #19254f;
+  --color-hero-edge: rgba(255, 248, 252, 0.4);
+
+  /* Primary UI fill (filled buttons, toggle track, sidebar active item,
+     slider fill). One value in both themes, a step darker than the brand
+     coral so an off-white label clears AA on it (4.56:1) while the fill
+     itself still clears 3:1 against the light page (4.56:1), the dark page
+     (3.82:1) and the navy end of the sidebar sweep (3.11:1). The brand coral
+     (--color-logo-primary) stays for icons and text accents on neutral
+     surfaces, where it only has to clear 3:1 as a graphic. */
+  --color-background-ui: #dc1f60;
+  /* Far end of the primary-fill gradient. Darker still, so the label keeps
+     AA across the whole sweep (5.41:1 on this end). */
+  --color-accent-deep: #c9184a;
+  /* Label color for text sitting *on* --color-background-ui. */
+  --color-on-accent: #fff8fc;
+  --color-text-stroke: #fff8fc;
+  /* Inert track behind sliders/progress bars. Derives from a token that
+     already flips, so it needs no light/dark pair of its own. */
+  --color-track: color-mix(in srgb, var(--color-mid-gray) 30%, transparent);
 
   /* Active palette — defaults to light, follows the OS via the media query
      below, or is forced by `data-theme` (see the overrides below). */
@@ -33,8 +147,25 @@
   --color-background: var(--light-color-background);
   --color-logo-primary: var(--light-color-logo-primary);
   --color-logo-stroke: var(--light-color-logo-stroke);
+  --color-mid-gray: var(--light-color-mid-gray);
   --color-warning: var(--light-color-warning);
   --color-error: var(--light-color-error);
+  --color-success: var(--light-color-success);
+  --color-info: var(--light-color-info);
+  --color-danger: var(--light-color-danger);
+  --color-on-danger: var(--light-color-on-danger);
+  --color-log-surface: var(--light-color-log-surface);
+  --color-scrim: var(--light-color-scrim);
+  --shadow-menu: var(--light-shadow-menu);
+  --color-surface: var(--light-color-surface);
+  --color-card-border: var(--light-color-card-border);
+  --shadow-card: var(--light-shadow-card);
+  --color-edge: var(--light-color-edge);
+  --color-band-from: var(--light-color-band-from);
+  --color-band-to: var(--light-color-band-to);
+  --color-accent-warm: var(--light-color-accent-warm);
+  --color-accent-cool: var(--light-color-accent-cool);
+  --color-navy: var(--light-color-navy);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -43,8 +174,25 @@
     --color-background: var(--dark-color-background);
     --color-logo-primary: var(--dark-color-logo-primary);
     --color-logo-stroke: var(--dark-color-logo-stroke);
+    --color-mid-gray: var(--dark-color-mid-gray);
     --color-warning: var(--dark-color-warning);
     --color-error: var(--dark-color-error);
+    --color-success: var(--dark-color-success);
+    --color-info: var(--dark-color-info);
+    --color-danger: var(--dark-color-danger);
+    --color-on-danger: var(--dark-color-on-danger);
+    --color-log-surface: var(--dark-color-log-surface);
+    --color-scrim: var(--dark-color-scrim);
+    --shadow-menu: var(--dark-shadow-menu);
+    --color-surface: var(--dark-color-surface);
+    --color-card-border: var(--dark-color-card-border);
+    --shadow-card: var(--dark-shadow-card);
+    --color-edge: var(--dark-color-edge);
+    --color-band-from: var(--dark-color-band-from);
+    --color-band-to: var(--dark-color-band-to);
+    --color-accent-warm: var(--dark-color-accent-warm);
+    --color-accent-cool: var(--dark-color-accent-cool);
+    --color-navy: var(--dark-color-navy);
   }
 }
 
@@ -52,19 +200,39 @@
  * Explicit theme override, driven by the `theme` setting via
  * `document.documentElement.dataset.theme`. When set, the higher-specificity
  * attribute selectors win over the `prefers-color-scheme` media query above,
- * so a user can keep Handy light or dark regardless of the OS setting.
+ * so a user can keep Kandy light or dark regardless of the OS setting.
  * `system` (or no attribute) leaves the OS in charge.
  *
  * Lives here (not in App.css) so every window that imports the shared palette —
  * the settings window and the recording overlay alike — honours the override.
+ * Any token with a light/dark pair MUST be repeated in both blocks below;
+ * a token that only flips in the media query silently keeps its light value
+ * when a user forces dark on a light OS.
  */
 :root[data-theme="light"] {
   --color-text: var(--light-color-text);
   --color-background: var(--light-color-background);
   --color-logo-primary: var(--light-color-logo-primary);
   --color-logo-stroke: var(--light-color-logo-stroke);
+  --color-mid-gray: var(--light-color-mid-gray);
   --color-warning: var(--light-color-warning);
   --color-error: var(--light-color-error);
+  --color-success: var(--light-color-success);
+  --color-info: var(--light-color-info);
+  --color-danger: var(--light-color-danger);
+  --color-on-danger: var(--light-color-on-danger);
+  --color-log-surface: var(--light-color-log-surface);
+  --color-scrim: var(--light-color-scrim);
+  --shadow-menu: var(--light-shadow-menu);
+  --color-surface: var(--light-color-surface);
+  --color-card-border: var(--light-color-card-border);
+  --shadow-card: var(--light-shadow-card);
+  --color-edge: var(--light-color-edge);
+  --color-band-from: var(--light-color-band-from);
+  --color-band-to: var(--light-color-band-to);
+  --color-accent-warm: var(--light-color-accent-warm);
+  --color-accent-cool: var(--light-color-accent-cool);
+  --color-navy: var(--light-color-navy);
 }
 
 :root[data-theme="dark"] {
@@ -72,6 +240,85 @@
   --color-background: var(--dark-color-background);
   --color-logo-primary: var(--dark-color-logo-primary);
   --color-logo-stroke: var(--dark-color-logo-stroke);
+  --color-mid-gray: var(--dark-color-mid-gray);
   --color-warning: var(--dark-color-warning);
   --color-error: var(--dark-color-error);
+  --color-success: var(--dark-color-success);
+  --color-info: var(--dark-color-info);
+  --color-danger: var(--dark-color-danger);
+  --color-on-danger: var(--dark-color-on-danger);
+  --color-log-surface: var(--dark-color-log-surface);
+  --color-scrim: var(--dark-color-scrim);
+  --shadow-menu: var(--dark-shadow-menu);
+  --color-surface: var(--dark-color-surface);
+  --color-card-border: var(--dark-color-card-border);
+  --shadow-card: var(--dark-shadow-card);
+  --color-edge: var(--dark-color-edge);
+  --color-band-from: var(--dark-color-band-from);
+  --color-band-to: var(--dark-color-band-to);
+  --color-accent-warm: var(--dark-color-accent-warm);
+  --color-accent-cool: var(--dark-color-accent-cool);
+  --color-navy: var(--dark-color-navy);
+}
+
+/*
+ * Fixed-theme scopes. A subtree carrying one of these classes renders with
+ * that palette no matter which theme is active on the root: the sidebar and
+ * the meeting-recorder hero are always dark, the onboarding cards always
+ * light. Every token that has a light/dark pair is re-pointed here, so the
+ * ordinary Tailwind utilities (text-text, bg-surface, text-mid-gray, ...) keep
+ * working inside the scope. Keep the list in step with the blocks above.
+ */
+.scope-light {
+  --color-text: var(--light-color-text);
+  --color-background: var(--light-color-background);
+  --color-logo-primary: var(--light-color-logo-primary);
+  --color-logo-stroke: var(--light-color-logo-stroke);
+  --color-mid-gray: var(--light-color-mid-gray);
+  --color-warning: var(--light-color-warning);
+  --color-error: var(--light-color-error);
+  --color-success: var(--light-color-success);
+  --color-info: var(--light-color-info);
+  --color-danger: var(--light-color-danger);
+  --color-on-danger: var(--light-color-on-danger);
+  --color-log-surface: var(--light-color-log-surface);
+  --color-scrim: var(--light-color-scrim);
+  --shadow-menu: var(--light-shadow-menu);
+  --color-surface: var(--light-color-surface);
+  --color-card-border: var(--light-color-card-border);
+  --shadow-card: var(--light-shadow-card);
+  --color-edge: var(--light-color-edge);
+  --color-band-from: var(--light-color-band-from);
+  --color-band-to: var(--light-color-band-to);
+  --color-accent-warm: var(--light-color-accent-warm);
+  --color-accent-cool: var(--light-color-accent-cool);
+  --color-navy: var(--light-color-navy);
+  color-scheme: light;
+}
+
+.scope-dark {
+  --color-text: var(--dark-color-text);
+  --color-background: var(--dark-color-background);
+  --color-logo-primary: var(--dark-color-logo-primary);
+  --color-logo-stroke: var(--dark-color-logo-stroke);
+  --color-mid-gray: var(--dark-color-mid-gray);
+  --color-warning: var(--dark-color-warning);
+  --color-error: var(--dark-color-error);
+  --color-success: var(--dark-color-success);
+  --color-info: var(--dark-color-info);
+  --color-danger: var(--dark-color-danger);
+  --color-on-danger: var(--dark-color-on-danger);
+  --color-log-surface: var(--dark-color-log-surface);
+  --color-scrim: var(--dark-color-scrim);
+  --shadow-menu: var(--dark-shadow-menu);
+  --color-surface: var(--dark-color-surface);
+  --color-card-border: var(--dark-color-card-border);
+  --shadow-card: var(--dark-shadow-card);
+  --color-edge: var(--dark-color-edge);
+  --color-band-from: var(--dark-color-band-from);
+  --color-band-to: var(--dark-color-band-to);
+  --color-accent-warm: var(--dark-color-accent-warm);
+  --color-accent-cool: var(--dark-color-accent-cool);
+  --color-navy: var(--dark-color-navy);
+  color-scheme: dark;
 }

@@ -21,9 +21,142 @@ async resetBinding(id: string) : Promise<Result<BindingResponse, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async changePttSetting(enabled: boolean) : Promise<Result<null, string>> {
+/**
+ * Start key recording mode for the shortcut editor.
+ */
+async startKandyKeysRecording(bindingId: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("change_ptt_setting", { enabled }) };
+    return { status: "ok", data: await TAURI_INVOKE("start_kandy_keys_recording", { bindingId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Stop key recording mode.
+ */
+async stopKandyKeysRecording() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("stop_kandy_keys_recording") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getSecureInputStatus() : Promise<SecureInputStatus> {
+    return await TAURI_INVOKE("get_secure_input_status");
+},
+async showMainWindowCommand() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("show_main_window_command") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cancelOperation() : Promise<void> {
+    await TAURI_INVOKE("cancel_operation");
+},
+async getAppDirPath() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_app_dir_path") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getAppSettings() : Promise<Result<AppSettings, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_app_settings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getDefaultSettings() : Promise<Result<AppSettings, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_default_settings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getLogDirPath() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_log_dir_path") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async openRecordingsFolder() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_recordings_folder") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async openLogDir() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_log_dir") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async openAppDataDir() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_app_data_dir") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Try to initialize Enigo (keyboard/mouse simulation).
+ * On macOS, this will return an error if accessibility permissions are not granted.
+ */
+async initializeEnigo() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("initialize_enigo") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Initialize keyboard shortcuts.
+ * On macOS, this should be called after accessibility permissions are granted.
+ * This is idempotent - calling it multiple times is safe.
+ */
+async initializeShortcuts() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("initialize_shortcuts") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeShortcutActivationSetting(activation: ShortcutActivation) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_shortcut_activation_setting", { activation }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeHoldThresholdSetting(thresholdMs: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_hold_threshold_setting", { thresholdMs }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async changeVadBackendSetting(backend: VadBackend) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("change_vad_backend_setting", { backend }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -61,25 +194,9 @@ async changeThemeSetting(theme: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async changeStartHiddenSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_start_hidden_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async changeAutostartSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_autostart_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeTranslateToEnglishSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_translate_to_english_setting", { enabled }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -109,84 +226,9 @@ async changeOverlayStyleSetting(style: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async changeDebugModeSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_debug_mode_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeWordCorrectionThresholdSetting(threshold: number) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_word_correction_threshold_setting", { threshold }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeExtraRecordingBufferSetting(ms: number) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_extra_recording_buffer_setting", { ms }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changePasteDelayMsSetting(ms: number) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_paste_delay_ms_setting", { ms }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changePasteDelayAfterMsSetting(ms: number) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_paste_delay_after_ms_setting", { ms }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeReliablePasteSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_reliable_paste_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async changePasteMethodSetting(method: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_paste_method_setting", { method }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getAvailableTypingTools() : Promise<string[]> {
-    return await TAURI_INVOKE("get_available_typing_tools");
-},
-async changeTypingToolSetting(tool: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_typing_tool_setting", { tool }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeExternalScriptPathSetting(path: string | null) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_external_script_path_setting", { path }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeClipboardHandlingSetting(handling: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_clipboard_handling_setting", { handling }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -208,6 +250,11 @@ async changeAutoSubmitKeySetting(key: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Toggle automatic post-processing of every dictation. The
+ * `transcribe_with_post_process` shortcut stays registered regardless, so a
+ * single dictation can always be post-processed on demand.
+ */
 async changePostProcessEnabledSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_post_process_enabled_setting", { enabled }) };
@@ -216,81 +263,54 @@ async changePostProcessEnabledSetting(enabled: boolean) : Promise<Result<null, s
     else return { status: "error", error: e  as any };
 }
 },
-async changeExperimentalEnabledSetting(enabled: boolean) : Promise<Result<null, string>> {
+async changePostProcessPromptSetting(prompt: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("change_experimental_enabled_setting", { enabled }) };
+    return { status: "ok", data: await TAURI_INVOKE("change_post_process_prompt_setting", { prompt }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async changePostProcessBaseUrlSetting(providerId: string, baseUrl: string) : Promise<Result<null, string>> {
+async changeLlmModelSetting(model: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("change_post_process_base_url_setting", { providerId, baseUrl }) };
+    return { status: "ok", data: await TAURI_INVOKE("change_llm_model_setting", { model }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async changePostProcessApiKeySetting(providerId: string, apiKey: string) : Promise<Result<null, string>> {
+async changeMeetingSummaryPromptSetting(prompt: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("change_post_process_api_key_setting", { providerId, apiKey }) };
+    return { status: "ok", data: await TAURI_INVOKE("change_meeting_summary_prompt_setting", { prompt }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async changePostProcessModelSetting(providerId: string, model: string) : Promise<Result<null, string>> {
+async changeMeetingAutoSummarizeSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("change_post_process_model_setting", { providerId, model }) };
+    return { status: "ok", data: await TAURI_INVOKE("change_meeting_auto_summarize_setting", { enabled }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async setPostProcessProvider(providerId: string) : Promise<Result<null, string>> {
+async changeMeetingAutoTitleSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("set_post_process_provider", { providerId }) };
+    return { status: "ok", data: await TAURI_INVOKE("change_meeting_auto_title_setting", { enabled }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async fetchPostProcessModels(providerId: string) : Promise<Result<string[], string>> {
+/**
+ * Set or clear the Kantega LLM proxy key. An empty (or whitespace-only)
+ * `api_key` removes the entry so the key genuinely disappears from the
+ * settings file; see `settings::set_llm_api_key`.
+ */
+async changeLlmApiKeySetting(apiKey: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("fetch_post_process_models", { providerId }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async addPostProcessPrompt(name: string, prompt: string) : Promise<Result<LLMPrompt, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("add_post_process_prompt", { name, prompt }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async updatePostProcessPrompt(id: string, name: string, prompt: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("update_post_process_prompt", { id, name, prompt }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async deletePostProcessPrompt(id: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("delete_post_process_prompt", { id }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async setPostProcessSelectedPrompt(id: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_post_process_selected_prompt", { id }) };
+    return { status: "ok", data: await TAURI_INVOKE("change_llm_api_key_setting", { apiKey }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -306,7 +326,7 @@ async updateCustomWords(words: string[]) : Promise<Result<null, string>> {
 },
 /**
  * Temporarily unregister all bindings while the user is recording a
- * shortcut in the UI. This avoids firing actions while keys are recorded.
+ * shortcut in the UI, so no existing shortcut fires mid-capture.
  */
 async suspendAllBindings() : Promise<Result<null, string>> {
     try {
@@ -330,22 +350,6 @@ async resumeAllBindings() : Promise<Result<null, string>> {
 async changeMuteWhileRecordingSetting(enabled: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_mute_while_recording_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeAppendTrailingSpaceSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_append_trailing_space_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeLazyStreamCloseSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_lazy_stream_close_setting", { enabled }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -375,255 +379,9 @@ async changeAppLanguageSetting(language: string) : Promise<Result<null, string>>
     else return { status: "error", error: e  as any };
 }
 },
-async changeUpdateChecksSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_update_checks_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeShowWhatsNewOnUpdateSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_show_whats_new_on_update_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeWhatsNewLastSeenVersionSetting(version: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_whats_new_last_seen_version_setting", { version }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Change the keyboard implementation with runtime switching.
- * This will unregister all shortcuts from the old implementation,
- * validate shortcuts for the new implementation (resetting invalid ones to defaults),
- * and register them with the new implementation.
- */
-async changeKeyboardImplementationSetting(implementation: string) : Promise<Result<ImplementationChangeResult, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_keyboard_implementation_setting", { implementation }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Get the current keyboard implementation
- */
-async getKeyboardImplementation() : Promise<string> {
-    return await TAURI_INVOKE("get_keyboard_implementation");
-},
-async changeShowTrayIconSetting(enabled: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_show_tray_icon_setting", { enabled }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeTranscribeAcceleratorSetting(accelerator: TranscribeAcceleratorSetting) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_transcribe_accelerator_setting", { accelerator }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeOrtAcceleratorSetting(accelerator: OrtAcceleratorSetting) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_ort_accelerator_setting", { accelerator }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async changeTranscribeGpuDevice(device: string | null) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("change_transcribe_gpu_device", { device }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Return which accelerators and GPU devices are available for this build.
- * 
- * First-call cost is dominated by enumerating GPU devices through the
- * transcribe.cpp Metal/Vulkan backend, which loads dynamic libraries and
- * probes hardware. Run it on the blocking pool so the webview thread
- * stays responsive — see also the startup pre-warm in `lib.rs`.
- */
-async getAvailableAccelerators() : Promise<AvailableAccelerators> {
-    return await TAURI_INVOKE("get_available_accelerators");
-},
-/**
- * Start key recording mode
- */
-async startHandyKeysRecording(bindingId: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("start_handy_keys_recording", { bindingId }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Stop key recording mode
- */
-async stopHandyKeysRecording() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("stop_handy_keys_recording") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getSecureInputStatus() : Promise<SecureInputStatus> {
-    return await TAURI_INVOKE("get_secure_input_status");
-},
-async runKeyboardDiagnostic(durationSecs: number | null) : Promise<Result<KeyboardDiagnosticReport, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("run_keyboard_diagnostic", { durationSecs }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async triggerUpdateCheck() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("trigger_update_check") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async showMainWindowCommand() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("show_main_window_command") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async cancelOperation() : Promise<void> {
-    await TAURI_INVOKE("cancel_operation");
-},
-async isPortable() : Promise<boolean> {
-    return await TAURI_INVOKE("is_portable");
-},
-async getAppDirPath() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_app_dir_path") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getAppSettings() : Promise<Result<AppSettings, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_app_settings") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getDefaultSettings() : Promise<Result<AppSettings, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_default_settings") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getLogDirPath() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_log_dir_path") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async setLogLevel(level: LogLevel) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_log_level", { level }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async openRecordingsFolder() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("open_recordings_folder") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async openLogDir() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("open_log_dir") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async openAppDataDir() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("open_app_data_dir") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Check if Apple Intelligence is available on this device.
- * Called by the frontend when the user selects Apple Intelligence provider.
- */
-async checkAppleIntelligenceAvailable() : Promise<boolean> {
-    return await TAURI_INVOKE("check_apple_intelligence_available");
-},
-/**
- * Try to initialize Enigo (keyboard/mouse simulation).
- * On macOS, this will return an error if accessibility permissions are not granted.
- */
-async initializeEnigo() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("initialize_enigo") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Initialize keyboard shortcuts.
- * On macOS, this should be called after accessibility permissions are granted.
- * This is idempotent - calling it multiple times is safe.
- */
-async initializeShortcuts() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("initialize_shortcuts") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async getAvailableModels() : Promise<Result<ModelInfo[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_available_models") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getModelInfo(modelId: string) : Promise<Result<ModelInfo | null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_model_info", { modelId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -677,14 +435,6 @@ async getTranscriptionModelStatus() : Promise<Result<string | null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async isModelLoading() : Promise<Result<boolean, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("is_model_loading") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 /**
  * Re-scan local sources (custom models dir + shared HF cache) for models added
  * since launch
@@ -692,33 +442,6 @@ async isModelLoading() : Promise<Result<boolean, string>> {
 async rescanLocalModels() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("rescan_local_models") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async updateMicrophoneMode(alwaysOn: boolean) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("update_microphone_mode", { alwaysOn }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getMicrophoneMode() : Promise<Result<boolean, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_microphone_mode") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getWindowsMicrophonePermissionStatus() : Promise<WindowsMicrophonePermissionStatus> {
-    return await TAURI_INVOKE("get_windows_microphone_permission_status");
-},
-async openMicrophonePrivacySettings() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("open_microphone_privacy_settings") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -740,14 +463,6 @@ async setSelectedMicrophone(deviceName: string) : Promise<Result<null, string>> 
     else return { status: "error", error: e  as any };
 }
 },
-async getSelectedMicrophone() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_selected_microphone") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
 async getAvailableOutputDevices() : Promise<Result<AudioDevice[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_available_output_devices") };
@@ -759,36 +474,6 @@ async getAvailableOutputDevices() : Promise<Result<AudioDevice[], string>> {
 async setSelectedOutputDevice(deviceName: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_selected_output_device", { deviceName }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getSelectedOutputDevice() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_selected_output_device") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async playTestSound(soundType: string) : Promise<void> {
-    await TAURI_INVOKE("play_test_sound", { soundType });
-},
-async checkCustomSounds() : Promise<CustomSounds> {
-    return await TAURI_INVOKE("check_custom_sounds");
-},
-async setClamshellMicrophone(deviceName: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_clamshell_microphone", { deviceName }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getClamshellMicrophone() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_clamshell_microphone") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -808,25 +493,6 @@ async getMicrophoneChannels(deviceName: string) : Promise<Result<number, string>
 async setSelectedChannel(channel: number | null) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_selected_channel", { channel }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async setModelUnloadTimeout(timeout: ModelUnloadTimeout) : Promise<void> {
-    await TAURI_INVOKE("set_model_unload_timeout", { timeout });
-},
-async getModelLoadStatus() : Promise<Result<ModelLoadStatus, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_model_load_status") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async unloadModelManually() : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("unload_model_manually") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -864,6 +530,54 @@ async deleteHistoryEntry(id: number) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Delete several entries in one transaction, audio files included.
+ * 
+ * Preferred over looping `delete_history_entry` from the frontend: a single
+ * round trip, and either the whole selection goes or none of it does.
+ */
+async deleteHistoryEntries(ids: number[]) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_history_entries", { ids }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Wipe the history. Starred entries are kept unless `include_saved` is set.
+ */
+async deleteAllHistoryEntries(includeSaved: boolean) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_all_history_entries", { includeSaved }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Row counts for the whole history, so the "delete all" confirmation can name
+ * the real numbers rather than only the entries scrolled into view.
+ */
+async getHistoryStats() : Promise<Result<HistoryStats, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_history_stats") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Replace an entry's transcript with text the user corrected by hand.
+ */
+async updateHistoryEntryText(id: number, text: string) : Promise<Result<HistoryEntry, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_history_entry_text", { id, text }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async retryHistoryEntryTranscription(id: number) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("retry_history_entry_transcription", { id }) };
@@ -872,31 +586,114 @@ async retryHistoryEntryTranscription(id: number) : Promise<Result<null, string>>
     else return { status: "error", error: e  as any };
 }
 },
-async updateHistoryLimit(limit: number) : Promise<Result<null, string>> {
+async startMeetingRecording() : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("update_history_limit", { limit }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async updateRecordingRetentionPeriod(period: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("update_recording_retention_period", { period }) };
+    return { status: "ok", data: await TAURI_INVOKE("start_meeting_recording") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
 /**
- * Checks if the Mac is a laptop by detecting battery presence
- * 
- * This uses pmset to check for battery information.
- * Returns true if a battery is detected (laptop), false otherwise (desktop)
+ * Stop the meeting recording, save the audio, transcribe it, and persist the
+ * meeting. Returns the saved meeting (without a summary yet).
  */
-async isLaptop() : Promise<Result<boolean, string>> {
+async stopMeetingRecording() : Promise<Result<Meeting, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("is_laptop") };
+    return { status: "ok", data: await TAURI_INVOKE("stop_meeting_recording") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async isMeetingRecording() : Promise<boolean> {
+    return await TAURI_INVOKE("is_meeting_recording");
+},
+/**
+ * Transcribe an audio file the user picked from disk or dropped on the meeting
+ * tab, and persist it as a meeting. Same downstream path as
+ * `stop_meeting_recording`, just with pre-recorded audio.
+ * 
+ * Which containers and codecs are accepted follows straight from the
+ * `symphonia` feature list in `Cargo.toml`.
+ */
+async uploadMeetingAudio(filePath: string) : Promise<Result<Meeting, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("upload_meeting_audio", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Generate (or regenerate) a Norwegian summary for a saved meeting via the
+ * Kantega LLM proxy. `prompt` overrides the global summary prompt for this
+ * meeting only; `None` or blank falls back to the setting. The prompt used is
+ * stored on the meeting so a later regenerate starts from it.
+ */
+async summarizeMeeting(id: number, prompt: string | null) : Promise<Result<Meeting, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("summarize_meeting", { id, prompt }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getMeetings() : Promise<Result<Meeting[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_meetings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async deleteMeeting(id: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_meeting", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async renameMeeting(id: number, title: string) : Promise<Result<Meeting, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("rename_meeting", { id, title }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Absolute path to a meeting's audio file, for playback via the asset
+ * protocol and for the "download audio" save dialog. Mirrors
+ * `commands::history::get_audio_file_path`.
+ */
+async getMeetingAudioPath(fileName: string) : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_meeting_audio_path", { fileName }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Persist a hand-edited summary. Prompt and model are left as they were.
+ */
+async updateMeetingSummary(id: number, summary: string) : Promise<Result<Meeting, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_meeting_summary", { id, summary }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Persist a hand-edited transcript, so a corrected transcript can be fed back
+ * into a regenerated summary.
+ */
+async updateMeetingTranscript(id: number, transcript: string) : Promise<Result<Meeting, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_meeting_transcript", { id, transcript }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -909,12 +706,10 @@ async isLaptop() : Promise<Result<boolean, string>> {
 
 export const events = __makeEvents__<{
 historyUpdatePayload: HistoryUpdatePayload,
-streamPhaseEvent: StreamPhaseEvent,
-streamTextEvent: StreamTextEvent
+meetingUpdatePayload: MeetingUpdatePayload
 }>({
 historyUpdatePayload: "history-update-payload",
-streamPhaseEvent: "stream-phase-event",
-streamTextEvent: "stream-text-event"
+meetingUpdatePayload: "meeting-update-payload"
 })
 
 /** user-defined constants **/
@@ -925,100 +720,85 @@ streamTextEvent: "stream-text-event"
 
 /**
  * The container-level `serde(default)` (backed by the `Default` impl below)
- * guarantees every field — including ones added in the future — falls back to
- * its `get_default_settings()` value when missing from a stored settings
- * object, so a partial store can never fail the whole load (#1619).
- * Field-level defaults below take precedence where present.
+ * guarantees every field falls back to its `get_default_settings()` value when
+ * missing from a stored settings object, so a partial store can never fail the
+ * whole load. Field-level defaults take precedence where present.
  */
 export type AppSettings = { 
 /**
- * Internal settings schema marker for one-time migrations. Fresh installs
- * start at the current version; existing stores missing this key are
- * treated as version 0 and migrated forward.
+ * Internal settings schema marker. Fresh installs start at the current
+ * version; older stores are bumped forward on first read.
  */
 settings_schema_version?: number; 
 /**
  * Defaults to empty on partial stores; the load path merges in the
  * default bindings for any missing keys before the settings are used.
  */
-bindings?: Partial<{ [key in string]: ShortcutBinding }>; push_to_talk?: boolean; audio_feedback?: boolean; audio_feedback_volume?: number; sound_theme?: SoundTheme; start_hidden?: boolean; autostart_enabled?: boolean; update_checks_enabled?: boolean; show_whats_new_on_update?: boolean; 
-/**
- * The app version whose What's New the user has already seen. Fresh installs
- * default to the current version (nothing is "new" to them). Existing users
- * upgrading from before this key existed are blanked by the migration so they
- * see the current release's notes — see `apply_settings_migrations`.
- */
-whats_new_last_seen_version?: string; selected_model?: string; onboarding_completed?: boolean; always_on_microphone?: boolean; selected_microphone?: string | null; 
+bindings?: Partial<{ [key in string]: ShortcutBinding }>; shortcut_activation?: ShortcutActivation; hold_threshold_ms?: number; vad_backend?: VadBackend; audio_feedback?: boolean; audio_feedback_volume?: number; sound_theme?: SoundTheme; autostart_enabled?: boolean; selected_model?: string; onboarding_completed?: boolean; selected_microphone?: string | null; 
 /**
  * Which input channel to use on the selected microphone device.
- * None means "average all channels" (original behavior).
+ * None means "average all channels".
  */
-selected_channel?: number | null; clamshell_microphone?: string | null; selected_output_device?: string | null; translate_to_english?: boolean; selected_language?: string; overlay_position?: OverlayPosition; debug_mode?: boolean; log_level?: LogLevel; custom_words?: string[]; model_unload_timeout?: ModelUnloadTimeout; word_correction_threshold?: number; history_limit?: number; recording_retention_period?: RecordingRetentionPeriod; paste_method?: PasteMethod; clipboard_handling?: ClipboardHandling; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; post_process_enabled?: boolean; post_process_provider_id?: string; post_process_providers?: PostProcessProvider[]; post_process_api_keys?: SecretMap; post_process_models?: Partial<{ [key in string]: string }>; post_process_prompts?: LLMPrompt[]; post_process_selected_prompt_id?: string | null; mute_while_recording?: boolean; append_trailing_space?: boolean; app_language?: string; theme?: Theme; experimental_enabled?: boolean; lazy_stream_close?: boolean; keyboard_implementation?: KeyboardImplementation; show_tray_icon?: boolean; paste_delay_ms?: number; paste_delay_after_ms?: number; 
+selected_channel?: number | null; selected_output_device?: string | null; selected_language?: string; overlay_position?: OverlayPosition; overlay_style?: OverlayStyle; custom_words?: string[]; paste_method?: PasteMethod; auto_submit?: boolean; auto_submit_key?: AutoSubmitKey; 
 /**
- * Debug-gated ("beta") receipt-sequenced paste: restore the clipboard only
- * after the target app actually reads the transcript, instead of after a
- * fixed delay. See `paste_tx`. macOS and Windows only.
+ * Post-process every dictation with the LLM. The
+ * `transcribe_with_post_process` shortcut forces post-processing for one
+ * dictation regardless of this flag.
  */
-reliable_paste?: boolean; typing_tool?: TypingTool; external_script_path?: string | null; filler_word_removal_enabled?: boolean; custom_filler_words?: string[] | null; transcribe_accelerator?: TranscribeAcceleratorSetting; ort_accelerator?: OrtAcceleratorSetting;
+post_process_enabled?: boolean; 
 /**
- * Stable transcribe.cpp device selector. This is derived from the backend's
- * `device_id` when available (or its name for backends such as Metal),
- * never from the process-local device registry index.
+ * System prompt for dictation post-processing.
  */
-transcribe_gpu_device?: string | null; extra_recording_buffer_ms?: number; vad_enabled?: boolean;
+post_process_prompt?: string; 
 /**
- * Which recording overlay to show: None / Minimal / Live. Streaming mode is
- * not gated on this — that follows model capability. Migrated from the old
- * `overlay_position` (position `none` → style `None`).
+ * Fully-qualified Kantega LLM proxy model id, shared by post-processing
+ * and meeting summaries.
  */
-overlay_style?: OverlayStyle }
+llm_model?: string; mute_while_recording?: boolean; app_language?: string; theme?: Theme; filler_word_removal_enabled?: boolean; vad_enabled?: boolean; 
+/**
+ * Meeting feature: editable system prompt used to summarise a meeting
+ * transcript. Norwegian (bokmål) by default; the transcript is sent as the
+ * user message (see `kantega_llm`).
+ */
+meeting_summary_prompt?: string; 
+/**
+ * Generate a summary automatically after a meeting is transcribed. When
+ * false the user starts it from the meeting view.
+ */
+meeting_auto_summarize?: boolean; 
+/**
+ * Ask the LLM for a short title (3 to 10 words) when a meeting is
+ * summarised and its title is still the automatic timestamp.
+ */
+meeting_auto_title?: boolean; 
+/**
+ * Kantega LLM proxy API key, stored in a redacting `SecretMap` (keyed by
+ * [`crate::kantega_llm::LLM_KEY_ID`]) so it never leaks to logs. One key
+ * serves both post-processing and meeting summaries.
+ */
+llm_api_keys?: SecretMap }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
-export type AvailableAccelerators = { transcribe: string[]; ort: string[]; gpu_devices: GpuDeviceOption[] }
 export type BindingResponse = { success: boolean; binding: ShortcutBinding | null; error: string | null }
-export type ClipboardHandling = "dont_modify" | "copy_to_clipboard"
-export type CustomSounds = { start: boolean; stop: boolean }
-export type EngineType = 
+export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean; 
 /**
- * Any GGML/GGUF model loaded through transcribe-cpp (Whisper, Parakeet,
- * Voxtral, Qwen3-ASR, Nemotron, …). The architecture is auto-detected from
- * the file, so this one variant covers the whole transcribe-cpp family.
+ * True once the transcript has been corrected by hand. Reset when the
+ * entry is re-transcribed, since that replaces the manual text.
  */
-"TranscribeCpp" | "Parakeet" | "Moonshine" | "MoonshineStreaming" | "SenseVoice" | "GigaAM" | "Canary" | "Cohere"
-export type GpuDeviceOption = { id: string; name: string; total_vram_mb: number }
-export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean }
+edited: boolean }
+/**
+ * Totals for the whole history table, used by the "delete all" confirmation
+ * so it can state exactly how much is about to disappear.
+ */
+export type HistoryStats = { total: number; saved: number }
 export type HistoryUpdatePayload = { action: "added"; entry: HistoryEntry } | { action: "updated"; entry: HistoryEntry } | { action: "deleted"; id: number } | { action: "toggled"; id: number }
+export type Meeting = { id: number; title: string; timestamp: number; audio_file: string; transcript: string; summary: string | null; summary_prompt: string | null; model: string | null; duration_secs: number }
+export type MeetingUpdatePayload = { action: "added"; meeting: Meeting } | { action: "updated"; meeting: Meeting } | { action: "deleted"; id: number }
+export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; accuracy_score: number; speed_score: number; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_language_detection: boolean }
 /**
- * Result of changing keyboard implementation
- */
-export type ImplementationChangeResult = { success: boolean; 
-/**
- * List of binding IDs that were reset to defaults due to incompatibility
- */
-reset_bindings: string[] }
-export type KeyboardDiagnosticReport = { secure_input_enabled: boolean; culprit_pid: number | null; culprit_name: string | null; 
-/**
- * Counts only — key identity is deliberately never captured.
- */
-key_down: number; key_up: number; flags_changed: number; mouse: number; duration_ms: number }
-export type KeyboardImplementation = "tauri" | "handy_keys"
-export type LLMPrompt = { id: string; name: string; prompt: string }
-export type LogLevel = "trace" | "debug" | "info" | "warn" | "error"
-export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; is_directory: boolean; engine_type: EngineType; accuracy_score: number; speed_score: number; supports_translation: boolean; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_streaming: boolean; supports_language_detection: boolean }
-export type ModelLoadStatus = { is_loaded: boolean; current_model: string | null }
-/**
- * Where a model comes from and how Handy obtains it — the routing discriminant
- * for downloading and on-disk resolution.
+ * Where a model comes from and how Kandy obtains it.
  */
 export type ModelSource = 
-/**
- * Direct HTTP download from a URL (current blob.handy.computer hosting).
- */
-{ Url: { url: string; 
-/**
- * Expected SHA-256 for integrity verification; `None` skips it.
- */
-sha256: string | null } } | 
 /**
  * A file inside a Hugging Face Hub repo, fetched via hf-hub into the shared
  * HF cache (so other tools reuse it). The file within the repo is
@@ -1030,21 +810,23 @@ sha256: string | null } } |
  * in a shared cache. Nothing to download.
  */
 "Local"
-export type ModelUnloadTimeout = "never" | "immediately" | "min_2" | "min_5" | "min_10" | "min_15" | "hour_1" | "sec_15"
-export type OrtAcceleratorSetting = "auto" | "cpu" | "cuda" | "directml" | "rocm"
 export type OverlayPosition = "top" | "bottom"
 /**
- * Which recording overlay to display. `Minimal` and `Live` share one base
- * (the pill); `Live` grows into the panel that shows live transcription text.
- * `None` hides the overlay entirely. Decoupled from whether the model runs in
- * streaming mode (that is driven purely by model capability).
+ * Whether the recording overlay is shown. `Minimal` is the compact pill;
+ * `None` hides the overlay entirely.
  */
-export type OverlayStyle = "none" | "minimal" | "live"
+export type OverlayStyle = "none" | 
+/**
+ * `live` is accepted from stores written when a larger live-text overlay
+ * existed; it folds onto the only visible style.
+ */
+"minimal"
 export type PaginatedHistory = { entries: HistoryEntry[]; has_more: boolean }
-export type PasteMethod = "ctrl_v" | "direct" | "none" | "shift_insert" | "ctrl_shift_v" | "external_script"
-export type PermissionAccess = "allowed" | "denied" | "unknown"
-export type PostProcessProvider = { id: string; label: string; base_url: string; allow_base_url_edit?: boolean; models_endpoint?: string | null; supports_structured_output?: boolean }
-export type RecordingRetentionPeriod = "never" | "preserve_limit" | "days_3" | "weeks_2" | "months_3"
+export type PasteMethod = "ctrl_v" | "direct" | "none"
+/**
+ * A string-keyed map of credentials, redacted in `Debug` so a settings dump
+ * never leaks a key into the log file.
+ */
 export type SecretMap = Partial<{ [key in string]: string }>
 export type SecureInputStatus = { 
 /**
@@ -1079,47 +861,14 @@ uncovered_bindings: string[];
  */
 recorder_blocked: boolean }
 export type ShortcutBinding = { id: string; name: string; description: string; default_binding: string; current_binding: string }
-export type SoundTheme = "marimba" | "pop" | "custom"
-/**
- * Phase of the streaming overlay card, emitted to drive its UI state.
- */
-export type StreamPhase = 
-/**
- * Receiving audio / live text (or waiting for the stream to begin). Rust
- * does not emit this today; the frontend starts in this phase and Rust only
- * emits transitions away from it.
- */
-"listening" | 
-/**
- * Finalizing or post-processing — show a spinner.
- */
-"working"
-/**
- * Emitted to switch the streaming overlay to a working spinner.
- */
-export type StreamPhaseEvent = { phase: StreamPhase; 
-/**
- * Present only when `phase` is `Working`.
- */
-kind?: StreamWorkKind | null }
-/**
- * Live transcription snapshot emitted to the overlay during a streaming run.
- * `committed` is the append-only, flicker-free prefix; `tentative` is the
- * volatile suffix the model may still rewrite.
- */
-export type StreamTextEvent = { committed: string; tentative: string }
-/**
- * Semantic kind of "working" phase, used to localize the spinner label.
- */
-export type StreamWorkKind = "transcribing" | "polishing"
+export type ShortcutActivation = "toggle" | "push_to_talk" | "hold_or_toggle"
+export type VadBackend = "silero" | "earshot"
+export type SoundTheme = "marimba" | "pop"
 /**
  * UI appearance mode. `System` follows the OS `prefers-color-scheme`; `Light`
- * and `Dark` force one of the two palettes Handy already ships.
+ * and `Dark` force one of the two palettes Kandy ships.
  */
 export type Theme = "system" | "light" | "dark"
-export type TranscribeAcceleratorSetting = "auto" | "cpu" | "gpu"
-export type TypingTool = "auto" | "wtype" | "kwtype" | "dotool" | "ydotool" | "xdotool"
-export type WindowsMicrophonePermissionStatus = { supported: boolean; overall_access: PermissionAccess; device_access: PermissionAccess; app_access: PermissionAccess; desktop_app_access: PermissionAccess }
 
 /** tauri-specta globals **/
 

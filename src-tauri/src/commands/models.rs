@@ -1,6 +1,6 @@
 use crate::managers::model::{ModelInfo, ModelManager};
-use crate::managers::transcription::{ModelStateEvent, TranscriptionManager};
-use crate::settings::{get_settings, write_settings, ModelUnloadTimeout};
+use crate::managers::transcription::TranscriptionManager;
+use crate::settings::{get_settings, write_settings};
 use log::error;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -11,15 +11,6 @@ pub async fn get_available_models(
     model_manager: State<'_, Arc<ModelManager>>,
 ) -> Result<Vec<ModelInfo>, String> {
     Ok(model_manager.get_available_models())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn get_model_info(
-    model_manager: State<'_, Arc<ModelManager>>,
-    model_id: String,
-) -> Result<Option<ModelInfo>, String> {
-    Ok(model_manager.get_model_info(&model_id))
 }
 
 /// Re-scan local sources (custom models dir + shared HF cache) for models added
@@ -70,13 +61,9 @@ pub async fn delete_model(
     model_id: String,
 ) -> Result<(), String> {
     // If deleting the active model, unload it and clear the setting
-    let settings = get_settings(&app_handle);
+    let mut settings = get_settings(&app_handle);
     if settings.selected_model == model_id {
-        transcription_manager
-            .unload_model()
-            .map_err(|e| format!("Failed to unload model: {}", e))?;
-
-        let mut settings = get_settings(&app_handle);
+        transcription_manager.unload_model();
         settings.selected_model = String::new();
         write_settings(&app_handle, settings);
     }
@@ -89,9 +76,7 @@ pub async fn delete_model(
 /// Shared logic for switching the active model, used by both the Tauri command
 /// and the tray menu handler.
 ///
-/// Validates the model, updates the persisted setting, and loads the model
-/// unless the unload timeout is set to "Immediately" (in which case the model
-/// will be loaded on-demand during the next transcription).
+/// Validates the model, updates the persisted setting, and loads the model.
 pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String> {
     let model_manager = app.state::<Arc<ModelManager>>();
     let transcription_manager = app.state::<Arc<TranscriptionManager>>();
@@ -113,7 +98,6 @@ pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String
     }
 
     let settings = get_settings(app);
-    let unload_timeout = settings.model_unload_timeout;
     let old_model = settings.selected_model.clone();
     let old_onboarding_completed = settings.onboarding_completed;
 
@@ -124,27 +108,6 @@ pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String
     settings.onboarding_completed = true;
 
     write_settings(app, settings);
-
-    // Skip eager loading if unload is set to "Immediately" — the model
-    // will be loaded on-demand during the next transcription.
-    if unload_timeout == ModelUnloadTimeout::Immediately {
-        // Notify frontend — load_model won't be called so no events
-        // would otherwise be emitted.
-        let _ = app.emit(
-            "model-state-changed",
-            ModelStateEvent {
-                event_type: "selection_changed".to_string(),
-                model_id: Some(model_id.to_string()),
-                model_name: Some(model_info.name.clone()),
-                error: None,
-            },
-        );
-        log::info!(
-            "Model selection changed to {} (not loading — unload set to Immediately).",
-            model_id
-        );
-        return Ok(());
-    }
 
     // Load the model. On failure, revert the persisted selection.
     if let Err(e) = transcription_manager.load_model(model_id) {
@@ -160,12 +123,7 @@ pub fn switch_active_model(app: &AppHandle, model_id: &str) -> Result<(), String
 
 #[tauri::command]
 #[specta::specta]
-pub async fn set_active_model(
-    app_handle: AppHandle,
-    _model_manager: State<'_, Arc<ModelManager>>,
-    _transcription_manager: State<'_, Arc<TranscriptionManager>>,
-    model_id: String,
-) -> Result<(), String> {
+pub async fn set_active_model(app_handle: AppHandle, model_id: String) -> Result<(), String> {
     switch_active_model(&app_handle, &model_id)
 }
 
@@ -182,16 +140,6 @@ pub async fn get_transcription_model_status(
     transcription_manager: State<'_, Arc<TranscriptionManager>>,
 ) -> Result<Option<String>, String> {
     Ok(transcription_manager.get_current_model())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn is_model_loading(
-    transcription_manager: State<'_, Arc<TranscriptionManager>>,
-) -> Result<bool, String> {
-    // Check if transcription manager has a loaded model
-    let current_model = transcription_manager.get_current_model();
-    Ok(current_model.is_none())
 }
 
 #[tauri::command]

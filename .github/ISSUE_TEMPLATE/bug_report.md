@@ -1,37 +1,40 @@
 ---
 name: Bug Report
-about: Create a report to help us improve Handy
+about: Report a bug in Kandy
 title: "[BUG] "
 labels: ["bug"]
 assignees: ""
 ---
 
-## Before You Submit
-
-**Please search [existing issues](https://github.com/cjpais/Handy/issues) to avoid duplicates.** Your bug may already be reported! Right now it's just me maintaining this project so many issues can be overwhelming! Help me out by checking first.
-
 ## Bug Description
 
-A clear and concise description of what the bug is.
+What went wrong?
+
+## Steps to Reproduce
+
+1.
+2.
+3.
+
+**Expected:**
+
+**Actual:**
 
 ## System Information
 
 **App Version:**
 
-<!-- You can find this in the app settings or about section -->
+<!-- Settings > About -->
 
 **Operating System:**
 
-<!-- e.g., macOS 14.1, Windows 11, Ubuntu 22.04 -->
+<!-- e.g., macOS 15.1 -->
 
-**CPU:**
+**CPU / GPU:**
 
-<!-- e.g., Apple M2, Intel i7-12700K, AMD Ryzen 7 5800X -->
-
-**GPU:**
-
-<!-- e.g., Apple M2 GPU, NVIDIA RTX 4080, AMD RX 6800 XT, Intel UHD Graphics -->
+<!-- e.g., Apple M2 -->
 
 ## Logs
 
-<!-- Please attach relevant logs to help us diagnose the issue. You can find the log directory by going to Settings > About in the app. -->
+<!-- Attach relevant logs. The log directory is listed under Settings > About.
+     Debug mode (Cmd/Ctrl+Shift+D) gives more detail. -->

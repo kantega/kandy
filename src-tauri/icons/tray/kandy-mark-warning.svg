@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!--
+    Kandy tray mark with the Secure Input warning badge.
+    Same Kantega K as kandy-mark.svg, scaled down and pinned to the top-left so
+    the K's lower leg stays clear of the badge, plus a filled disc at the
+    bottom-right that knocks out an exclamation mark. A transparent ring is cut
+    out of the mark around the disc so the two stay separable in a flat
+    template image.
+  -->
+  <defs>
+    <mask id="badge-clearance" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#fff"/>
+      <circle cx="49.5" cy="49.5" r="16.5" fill="#000"/>
+    </mask>
+    <mask id="exclamation" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <circle cx="49.5" cy="49.5" r="14" fill="#fff"/>
+      <rect x="47.1" y="38.7" width="4.8" height="15.6" rx="2.4" fill="#000"/>
+      <circle cx="49.5" cy="58.7" r="2.6" fill="#000"/>
+    </mask>
+  </defs>
+
+  <g mask="url(#badge-clearance)">
+    <g transform="translate(-4.6 -2.4) scale(0.212)" fill="#000" stroke="#000" stroke-width="4" stroke-linejoin="round">
+      <path d="M214.77,200.71c-1.73,0-3.84,1.54-13.05,1.54-59.65,0-45.9-67.06-92-79.26,42.63-9.66,81.5-52.76,81.5-64.83,0-10.17-7.67-17.65-15-17.65-2.58,0-38.48,69.47-85.74,74.86,9.23-23.77,18.21-43.57,18.21-52.8,0-15-12.86-22.83-20.53-22.83-.77,0-1.15.19-1.15.77,0,43.93-37,105.91-37,131.23,0,17.27,11.89,26.1,19.18,26.1,1.15,0,1.54-.39,1.54-1.54,0-22.34,7.28-47.11,15.47-69.5C132.51,135.29,117.8,217,182.92,217c22.26,0,33.19-12.08,33.19-15.15C216.11,201.1,215.54,200.71,214.77,200.71Z"/>
+    </g>
+  </g>
+
+  <circle cx="49.5" cy="49.5" r="14" fill="#000" mask="url(#exclamation)"/>
+</svg>

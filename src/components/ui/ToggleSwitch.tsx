@@ -8,9 +8,7 @@ interface ToggleSwitchProps {
   isUpdating?: boolean;
   label: string;
   description: string;
-  descriptionMode?: "inline" | "tooltip";
   grouped?: boolean;
-  tooltipPosition?: "top" | "bottom";
 }
 
 export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
@@ -20,18 +18,14 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
   isUpdating = false,
   label,
   description,
-  descriptionMode = "tooltip",
   grouped = false,
-  tooltipPosition = "top",
 }) => {
   return (
     <SettingContainer
       title={label}
       description={description}
-      descriptionMode={descriptionMode}
       grouped={grouped}
       disabled={disabled}
-      tooltipPosition={tooltipPosition}
     >
       <label
         className={`flex items-center ${disabled || isUpdating ? "cursor-not-allowed" : "cursor-pointer"}`}
@@ -44,7 +38,12 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
           disabled={disabled || isUpdating}
           onChange={(e) => onChange(e.target.checked)}
         />
-        <div className="relative w-11 h-6 bg-mid-gray/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-logo-primary rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-background-ui peer-disabled:opacity-50"></div>
+        {/* The knob is the page background with a mid-gray hairline rather than
+            a hardcoded white pill: white reads as an unthemed hole punched in
+            the dark purple UI, and on the light track it had no visible edge
+            at all. Both tokens flip with the theme, so the knob stays legible
+            against the unchecked gray track and the checked coral one. */}
+        <div className="relative w-11 h-6 bg-mid-gray/20 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-background-ui peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-background after:border-mid-gray after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-background-ui peer-checked:bg-accent-gradient peer-disabled:opacity-50"></div>
       </label>
       {isUpdating && (
         <div className="absolute inset-0 flex items-center justify-center">

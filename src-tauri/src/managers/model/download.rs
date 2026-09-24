@@ -1,7 +1,5 @@
-//! Shared direct-HTTP model download transport.
-//!
-//! Both legacy URL models and Hugging Face mirror fallbacks use this module;
-//! source-specific orchestration and finalization remain in the parent module.
+//! Direct-HTTP model download transport for the Hugging Face mirror fallback;
+//! orchestration and finalization remain in the parent module.
 
 use super::{DownloadProgress, ModelManager};
 use anyhow::Result;
@@ -16,7 +14,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 use tauri::Emitter;
 
-/// Bound on connection setup for direct HTTP downloads (mirror + URL models).
+/// Bound on connection setup for direct HTTP downloads.
 const HTTP_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// No headers, body bytes, or hf-hub progress for this long means the transfer
@@ -156,10 +154,9 @@ impl ModelManager {
         .await
     }
 
-    /// The one resumable HTTP downloader, shared by the mirror fallback and
-    /// URL-sourced models: fetch `url` into `partial_path`, resuming what's
-    /// already there, and leave verified bytes in `partial_path` on success —
-    /// finalizing (rename / extract) is the caller's job. Takes progress and
+    /// The resumable HTTP downloader: fetch `url` into `partial_path`,
+    /// resuming what's already there, and leave verified bytes in
+    /// `partial_path` on success. Finalizing (rename) is the caller's job. Takes progress and
     /// verification notifications as a callback instead of touching Tauri, so
     /// the failure-mode behavior below is exercised by tests against a local
     /// socket server.

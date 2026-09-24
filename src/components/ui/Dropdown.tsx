@@ -22,11 +22,12 @@ export const Dropdown: React.FC<DropdownProps> = ({
   selectedValue,
   onSelect,
   className = "",
-  placeholder = "Select an option...",
+  placeholder,
   disabled = false,
   onRefresh,
 }) => {
   const { t } = useTranslation();
+  const placeholderText = placeholder ?? t("common.selectOption");
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -64,13 +65,15 @@ export const Dropdown: React.FC<DropdownProps> = ({
         type="button"
         className={`px-2 py-[5px] text-sm font-semibold bg-mid-gray/10 border border-mid-gray/80 rounded-md min-w-[200px] w-full text-start grid grid-cols-[1fr_auto] gap-2 items-center transition-all duration-150 ${
           disabled
-            ? "opacity-50 cursor-not-allowed"
+            ? "cursor-not-allowed text-mid-gray border-mid-gray/40"
             : "hover:bg-logo-primary/10 cursor-pointer hover:border-logo-primary"
         }`}
         onClick={handleToggle}
         disabled={disabled}
       >
-        <span className="truncate">{selectedOption?.label || placeholder}</span>
+        <span className="truncate">
+          {selectedOption?.label || placeholderText}
+        </span>
         <svg
           className={`w-4 h-4 transition-transform duration-200 ${isOpen ? "transform rotate-180" : ""}`}
           fill="none"
@@ -86,7 +89,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
         </svg>
       </button>
       {isOpen && !disabled && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-background border border-mid-gray/80 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-mid-gray/80 rounded-md shadow-menu z-50 max-h-60 overflow-y-auto">
           {options.length === 0 ? (
             <div className="px-2 py-1 text-sm text-mid-gray">
               {t("common.noOptionsFound")}

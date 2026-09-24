@@ -1,12 +1,10 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import {
-  AudioLines,
   Check,
   Download,
   Globe,
   HardDrive,
-  Languages,
   Loader2,
   Trash2,
 } from "lucide-react";
@@ -16,48 +14,30 @@ import {
   getTranslatedModelDescription,
   getTranslatedModelName,
 } from "../../lib/utils/modelTranslation";
-import {
-  getLanguageLabel,
-  getUniqueCapabilityLanguages,
-} from "../../lib/constants/languages";
+import { getUniqueCapabilityLanguages } from "../../lib/constants/languages";
 import Badge from "../ui/Badge";
 import { Button } from "../ui/Button";
-import { useSettingsStore } from "@/stores/settingsStore";
 
 // Get display text for model's language support
 const getLanguageDisplayText = (
   supportedLanguages: string[],
   t: (key: string, options?: Record<string, unknown>) => string,
 ): string => {
-  const capabilityLanguages = getUniqueCapabilityLanguages(supportedLanguages);
-  if (capabilityLanguages.length === 1) {
-    const langCode = capabilityLanguages[0];
-    const langName = getLanguageLabel(langCode) || langCode;
-    return t("modelSelector.capabilities.languageOnly", { language: langName });
+  const codes = getUniqueCapabilityLanguages(supportedLanguages);
+  const hasNorwegian = codes.some((c) => ["nb", "no", "nn"].includes(c));
+  const hasEnglish = codes.includes("en");
+  if (codes.length === 0 || (hasNorwegian && hasEnglish)) {
+    return t("modelSelector.capabilities.norwegianAndEnglish");
   }
-  return t("modelSelector.capabilities.languageCount", {
-    total: capabilityLanguages.length,
-  });
-};
-
-// Legacy = a blob (Url-sourced) .bin/ONNX model, kept runnable but no longer the
-// advertised download (catalog GGUFs supersede it).
-export const isLegacySource = (model: ModelInfo): boolean =>
-  typeof model.source === "object" && "Url" in model.source;
-
-// Extract a GGUF quantization label from a filename, if present (e.g. "Q8_0").
-const getQuantLabel = (filename: string): string | null => {
-  const match = filename.match(
-    /[._-](IQ\d+_\w+|Q\d+(?:_\w+)?|F16|BF16|F32)\.gguf$/i,
-  );
-  return match ? match[1].toUpperCase() : null;
+  if (hasNorwegian) return t("modelSelector.capabilities.norwegianOnly");
+  if (hasEnglish) return t("modelSelector.capabilities.englishOnly");
+  return t("modelSelector.capabilities.otherLanguages");
 };
 
 export type ModelCardStatus =
   | "downloadable"
   | "downloading"
   | "verifying"
-  | "extracting"
   | "switching"
   | "active"
   | "available";
@@ -92,9 +72,6 @@ const ModelCard: React.FC<ModelCardProps> = ({
   showRecommended = true,
 }) => {
   const { t } = useTranslation();
-  const debugMode = useSettingsStore(
-    (state) => state.settings?.debug_mode ?? false,
-  );
   const isFeatured = variant === "featured";
   // The active model is already loaded — re-selecting it just reloads it for no
   // gain, so it is deliberately not clickable.
@@ -106,7 +83,6 @@ const ModelCard: React.FC<ModelCardProps> = ({
   const showModelSize =
     status === "downloadable" || status === "available" || status === "active";
   const formattedModelSize = formatModelSize(Number(model.size_mb));
-  const quantLabel = getQuantLabel(model.filename);
   const capabilityLanguages = getUniqueCapabilityLanguages(
     model.supported_languages,
   );
@@ -182,9 +158,6 @@ const ModelCard: React.FC<ModelCardProps> = ({
             {model.is_custom && (
               <Badge variant="secondary">{t("modelSelector.custom")}</Badge>
             )}
-            {isLegacySource(model) && (
-              <Badge variant="secondary">{t("modelSelector.legacy")}</Badge>
-            )}
             {status === "switching" && (
               <Badge variant="secondary">
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
@@ -192,7 +165,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
               </Badge>
             )}
           </div>
-          <p className="text-text/60 text-sm leading-relaxed">
+          <p className="text-mid-gray text-sm leading-relaxed">
             {displayDescription}
           </p>
         </div>
@@ -200,7 +173,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
           <div className="hidden sm:flex items-center ms-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <p className="text-xs text-text/60 w-24 text-end">
+                <p className="text-xs text-mid-gray w-24 text-end">
                   {t("onboarding.modelCard.accuracy")}
                 </p>
                 <div className="w-16 h-1.5 bg-mid-gray/20 rounded-full overflow-hidden">
@@ -211,7 +184,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <p className="text-xs text-text/60 w-24 text-end">
+                <p className="text-xs text-mid-gray w-24 text-end">
                   {t("onboarding.modelCard.speed")}
                 </p>
                 <div className="w-16 h-1.5 bg-mid-gray/20 rounded-full overflow-hidden">
@@ -232,7 +205,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
       <div className="flex items-center gap-3 w-full -mb-0.5 mt-0.5 h-5">
         {capabilityLanguages.length > 0 && (
           <div
-            className="flex items-center gap-1 text-xs text-text/50"
+            className="flex items-center gap-1 text-xs text-mid-gray"
             title={
               capabilityLanguages.length === 1
                 ? t("modelSelector.capabilities.singleLanguage")
@@ -243,35 +216,14 @@ const ModelCard: React.FC<ModelCardProps> = ({
             <span>{getLanguageDisplayText(model.supported_languages, t)}</span>
           </div>
         )}
-        {model.supports_translation && (
-          <div
-            className="flex items-center gap-1 text-xs text-text/50"
-            title={t("modelSelector.capabilities.translation")}
-          >
-            <Languages className="w-3.5 h-3.5" />
-            <span>{t("modelSelector.capabilities.translate")}</span>
-          </div>
-        )}
-        {model.supports_streaming && (
-          <div
-            className="flex items-center gap-1 text-xs text-text/50"
-            title={t("modelSelector.capabilities.streaming")}
-          >
-            <AudioLines className="w-3.5 h-3.5" />
-            <span>{t("modelSelector.streaming")}</span>
-          </div>
-        )}
         {showModelSize && (
-          <span className="flex items-center gap-1.5 ms-auto text-xs text-text/50">
+          <span className="flex items-center gap-1.5 ms-auto text-xs text-mid-gray">
             {status === "downloadable" ? (
               <Download className="w-3.5 h-3.5" />
             ) : (
               <HardDrive className="w-3.5 h-3.5" />
             )}
             <span>{formattedModelSize}</span>
-            {debugMode && quantLabel && (
-              <span className="text-text/40">{quantLabel}</span>
-            )}
           </span>
         )}
         {onDelete && (status === "available" || status === "active") && (
@@ -288,7 +240,7 @@ const ModelCard: React.FC<ModelCardProps> = ({
         )}
       </div>
 
-      {/* Download/extract progress */}
+      {/* Download progress */}
       {status === "downloading" && downloadProgress !== undefined && (
         <div className="w-full mt-3">
           <div className="w-full h-1.5 bg-mid-gray/20 rounded-full overflow-hidden">
@@ -298,14 +250,14 @@ const ModelCard: React.FC<ModelCardProps> = ({
             />
           </div>
           <div className="flex items-center justify-between text-xs mt-1">
-            <span className="text-text/50">
+            <span className="text-mid-gray">
               {t("modelSelector.downloading", {
                 percentage: Math.round(downloadProgress),
               })}
             </span>
             <div className="flex items-center gap-2">
               {downloadSpeed !== undefined && downloadSpeed > 0 && (
-                <span className="tabular-nums text-text/50">
+                <span className="tabular-nums text-mid-gray">
                   {t("modelSelector.downloadSpeed", {
                     speed: downloadSpeed.toFixed(1),
                   })}
@@ -334,18 +286,8 @@ const ModelCard: React.FC<ModelCardProps> = ({
           <div className="w-full h-1.5 bg-mid-gray/20 rounded-full overflow-hidden">
             <div className="h-full bg-logo-primary rounded-full animate-pulse w-full" />
           </div>
-          <p className="text-xs text-text/50 mt-1">
+          <p className="text-xs text-mid-gray mt-1">
             {t("modelSelector.verifyingGeneric")}
-          </p>
-        </div>
-      )}
-      {status === "extracting" && (
-        <div className="w-full mt-3">
-          <div className="w-full h-1.5 bg-mid-gray/20 rounded-full overflow-hidden">
-            <div className="h-full bg-logo-primary rounded-full animate-pulse w-full" />
-          </div>
-          <p className="text-xs text-text/50 mt-1">
-            {t("modelSelector.extractingGeneric")}
           </p>
         </div>
       )}

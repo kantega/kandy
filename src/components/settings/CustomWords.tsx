@@ -7,7 +7,6 @@ import { Button } from "../ui/Button";
 import { SettingContainer } from "../ui/SettingContainer";
 
 interface CustomWordsProps {
-  descriptionMode?: "inline" | "tooltip";
   grouped?: boolean;
 }
 
@@ -18,7 +17,7 @@ const normalizeCustomWord = (word: string) =>
     .trim();
 
 export const CustomWords: React.FC<CustomWordsProps> = React.memo(
-  ({ descriptionMode = "tooltip", grouped = false }) => {
+  ({ grouped = false }) => {
     const { t } = useTranslation();
     const { getSetting, updateSetting, isUpdating } = useSettings();
     const [newWord, setNewWord] = useState("");
@@ -59,7 +58,6 @@ export const CustomWords: React.FC<CustomWordsProps> = React.memo(
         <SettingContainer
           title={t("settings.advanced.customWords.title")}
           description={t("settings.advanced.customWords.description")}
-          descriptionMode={descriptionMode}
           grouped={grouped}
         >
           <div className="flex items-center gap-2">

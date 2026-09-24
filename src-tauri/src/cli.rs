@@ -2,7 +2,7 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug, Clone, Default)]
-#[command(name = "handy", about = "Handy - Speech to Text")]
+#[command(name = "kandy", about = "Kandy - Speech to Text")]
 pub struct CliArgs {
     /// Start with the main window hidden
     #[arg(long)]
@@ -39,8 +39,7 @@ pub struct CliArgs {
     pub model: Option<String>,
 
     /// Hard-select the compute device for --transcribe-file by its registry
-    /// index (see --list-devices). Omit to use the persisted accelerator
-    /// setting. transcribe-cpp (whisper-family) models only.
+    /// index (see --list-devices). Omit for automatic device selection.
     #[arg(long, value_name = "N")]
     pub device_index: Option<usize>,
 

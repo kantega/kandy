@@ -1,10 +1,8 @@
-//! Shared shortcut event handling logic
-//!
-//! This module contains the common logic for handling shortcut events,
-//! used by both the Tauri and handy-keys implementations.
+//! Shared shortcut event handling logic.
 
 use log::warn;
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 use crate::actions::ACTION_MAP;
@@ -13,19 +11,10 @@ use crate::settings::get_settings;
 use crate::transcription_coordinator::is_transcribe_binding;
 use crate::TranscriptionCoordinator;
 
-/// Handle a shortcut event from either implementation.
+/// Handle a shortcut event.
 ///
-/// This function contains the shared logic for:
-/// - Looking up the action in ACTION_MAP
-/// - Handling the cancel binding (only fires when recording)
-/// - Handling push-to-talk mode (start on press, stop on release)
-/// - Handling toggle mode (toggle state on press only)
-///
-/// # Arguments
-/// * `app` - The Tauri app handle
-/// * `binding_id` - The ID of the binding (e.g., "transcribe", "cancel")
-/// * `hotkey_string` - The string representation of the hotkey
-/// * `is_pressed` - Whether this is a key press (true) or release (false)
+/// Transcribe bindings go to the coordinator (push-to-talk vs toggle is
+/// decided there). The cancel binding only fires while recording, on press.
 pub fn handle_shortcut_event(
     app: &AppHandle,
     binding_id: &str,
@@ -34,10 +23,15 @@ pub fn handle_shortcut_event(
 ) {
     let settings = get_settings(app);
 
-    // Transcribe bindings are handled by the coordinator.
     if is_transcribe_binding(binding_id) {
         if let Some(coordinator) = app.try_state::<TranscriptionCoordinator>() {
-            coordinator.send_input(binding_id, hotkey_string, is_pressed, settings.push_to_talk);
+            coordinator.send_input(
+                binding_id,
+                hotkey_string,
+                is_pressed,
+                settings.shortcut_activation,
+                Duration::from_millis(settings.hold_threshold_ms),
+            );
         } else {
             warn!("TranscriptionCoordinator is not initialized");
         }
@@ -52,7 +46,6 @@ pub fn handle_shortcut_event(
         return;
     };
 
-    // Cancel binding: only fires when recording and key is pressed
     if binding_id == "cancel" {
         let audio_manager = app.state::<Arc<AudioRecordingManager>>();
         if audio_manager.is_recording() && is_pressed {
@@ -61,7 +54,6 @@ pub fn handle_shortcut_event(
         return;
     }
 
-    // Remaining bindings (e.g. "test") use simple start/stop on press/release.
     if is_pressed {
         action.start(app, binding_id, hotkey_string);
     } else {

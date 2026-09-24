@@ -1,7 +1,9 @@
 @import "../styles/theme.css";
 
 :root {
-  --s-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --s-font:
+    "Source Sans Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
   /* Near-opaque app surface (theme.css --color-background at 98%). Auto-flips
      light/dark with --color-background, so no dark-mode override is needed. */
   --s-surface: color-mix(in srgb, var(--color-background) 98%, transparent);
@@ -23,12 +25,14 @@
     var(--color-logo-primary) 20%,
     transparent
   );
-  /* Neutrals. muted/faint are overlay-specific secondary/tertiary text grays
-     (no theme equivalent). */
-  --light-s-muted: #6e6e6e;
-  --dark-s-muted: #a3a09a;
-  --light-s-faint: #9a9a9a;
-  --dark-s-faint: #6f6c66;
+  /* Neutrals. `faint` is the overlay's tertiary text gray (timer); `muted` is
+     secondary (working label, cancel glyph) and now just reuses the app's
+     mid-gray, which carries its own light/dark pair in theme.css.
+     The previous faint values were tertiary in look but failed AA outright —
+     #9a9a9a sat at 2.7:1 on the light surface and #6f6c66 at 2.6:1 on the dark
+     one, i.e. the recording timer was barely readable in either theme. */
+  --light-s-faint: #70707a;
+  --dark-s-faint: #918e96;
   /* Hairlines reuse the app's mid-gray at low opacity in light — same vocabulary
      as the app's border-mid-gray/* utilities — and flip to the near-white text
      token for contrast on dark. */
@@ -40,29 +44,25 @@
   /* Active neutrals — default light, flipped by the media query below or forced
      by `data-theme`. */
   --s-accent-soft: var(--light-s-accent-soft);
-  --s-muted: var(--light-s-muted);
+  --s-muted: var(--color-mid-gray);
   --s-faint: var(--light-s-faint);
   --s-border: var(--light-s-border);
   --s-hair: var(--light-s-hair);
 
   /* Card geometry — single source of truth for the visible overlay sizes. The
      native overlay window (overlay.rs) is sized from these: it must be at least
-     the card's max footprint (--ov-work-w for compact, --ov-open-w for Live),
-     since the card is anchored flush to the screen edge in CSS. Keep overlay.rs
-     in sync when these change. */
-  --ov-rest-w: 172px; /* resting compact pill (minimal, recording) -- roomy enough
-                         for the English working label before the grow starts */
-  --ov-pill-w: 184px; /* base width / Live pill before it opens or collapses */
-  --ov-work-w: 216px; /* working pill (transcribing / polishing) -- wide enough to
-                         center longer labels; shared by Live (collapsed) + minimal */
-  --ov-open-w: 392px; /* Live panel, expanded */
+     the card's max footprint (--ov-work-w), since the card is anchored flush to
+     the screen edge in CSS. Keep overlay.rs in sync when these change. */
+  --ov-rest-w: 172px; /* resting pill (recording) -- roomy enough for the
+                         English working label before the grow starts */
+  --ov-pill-w: 184px; /* base card width */
+  --ov-work-w: 216px; /* working pill (transcribing / processing) -- wide enough
+                         to center longer labels */
   --ov-base-h: 40px; /* control-row height (.sbase) */
-  --ov-cap-max-h: 64px; /* max height of the scrolling live-text region */
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --s-accent-soft: var(--dark-s-accent-soft);
-    --s-muted: var(--dark-s-muted);
     --s-faint: var(--dark-s-faint);
     --s-border: var(--dark-s-border);
     --s-hair: var(--dark-s-hair);
@@ -80,7 +80,6 @@
  */
 :root[data-theme="light"] {
   --s-accent-soft: var(--light-s-accent-soft);
-  --s-muted: var(--light-s-muted);
   --s-faint: var(--light-s-faint);
   --s-border: var(--light-s-border);
   --s-hair: var(--light-s-hair);
@@ -88,7 +87,6 @@
 
 :root[data-theme="dark"] {
   --s-accent-soft: var(--dark-s-accent-soft);
-  --s-muted: var(--dark-s-muted);
   --s-faint: var(--dark-s-faint);
   --s-border: var(--dark-s-border);
   --s-hair: var(--dark-s-hair);
@@ -96,7 +94,7 @@
 
 /* ============================================================
    Unified overlay stage — one fixed, transparent container shared by the compact
-   pill and the Live panel (both render the same `.scard` base). The card is
+   pill. The card is
    anchored flush to the screen-edge side (bottom by default, top when placed up
    top) and centered horizontally, so the visible card sits exactly
    OVERLAY_*_OFFSET from the screen edge regardless of window height — only the
@@ -125,39 +123,6 @@
   opacity: 1;
 }
 
-/* Top placement, Live panel: stack the control pill above the text region so the
-   card grows downward from its top edge (oldest line under the pill, newest at
-   the bottom) — mirroring the bottom overlay's upward flow. The compact pill has
-   no flowing text, so this only affects the Live panel. The text region keeps the
-   same fade + scroll-pin; older lines dissolve up under the pill. */
-.ov-stage.top .scard {
-  /* column-reverse stacks the control pill above the text region. */
-  flex-direction: column-reverse;
-  transform-origin: top center;
-}
-.ov-stage.top .stext-cap {
-  /* Mirror of the bottom overlay (top: 12 / bottom: 0): the first line sits flush
-     under the pill and the breathing room moves below the text. The top fade is
-     off at rest — at zero top padding it would dim the resting first line — and
-     switches on (below) only once text overflows. */
-  padding-top: 0;
-  padding-bottom: 12px;
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-/* Once live text overflows, fade older lines up under the pill, matching the
-   bottom overlay's top fade. Gated on `.overflowing` so a short resting line
-   (sitting at the very top) is never dimmed. */
-.ov-stage.top .stext-cap.overflowing {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 18px);
-}
-.ov-stage.top .stext-cap p {
-  /* Top-anchor short text just under the pill; on overflow the cap still pins to
-     the bottom (newest visible) and older lines fade off the top, same as bottom. */
-  margin: 0;
-}
-
 /* Shared base card. Flat: theme surface + hairline border, no shadow or blur. */
 .scard {
   width: var(--ov-pill-w);
@@ -170,116 +135,17 @@
   background: var(--s-surface);
   border: 1px solid var(--s-border);
   /* Flat: no drop shadow, no backdrop blur/saturate (was a glassy gradient look). */
-  /* pop-in plays on mount; morph (width/radius) is a transition */
-  animation: scard-pop 460ms cubic-bezier(0.22, 1, 0.36, 1);
-  transition:
-    width 460ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-radius 460ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform, width, opacity;
 }
-@keyframes scard-pop {
-  from {
-    opacity: 0;
-    /* Scale from the anchored edge (transform-origin) — never translate past it. */
-    transform: scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.scard.leaving {
-  opacity: 0;
-  transform: scale(0.96);
-  transition:
-    opacity 240ms ease,
-    transform 300ms ease;
-}
-.scard.open {
-  width: var(--ov-open-w);
-  border-radius: 16px;
-}
-.scard.working {
-  width: var(--ov-work-w);
-  border-radius: 18px;
-}
-
-/* Compact form: two fixed widths so the recording→working change is an animatable
-   width transition (intrinsic max-content can't be transitioned, and every label
-   is short enough to fit the resting pill, so content-sizing produced no visible
-   grow). The resting pill hugs the waveform; the working pill is roomy enough to
-   center the longest label — the .swork-label ellipsis is only a safety net past it. */
+/* Two fixed widths so the recording→working change is an animatable width
+   transition (intrinsic max-content can't be transitioned). The resting pill
+   hugs the waveform; the working pill is roomy enough to center the longest
+   label — the .swork-label ellipsis is only a safety net past it. */
 .scard.compact {
-  animation: none;
   width: var(--ov-rest-w);
 }
 .scard.compact.cworking {
   width: var(--ov-work-w);
-}
-
-/* text region — auto-height open via grid-rows trick; region fades as a whole */
-.stext {
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition:
-    grid-template-rows 440ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 260ms ease;
-}
-.scard.open .stext {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-.stext-clip {
-  overflow: hidden;
-  min-height: 0;
-}
-.stext-cap {
-  max-height: var(--ov-cap-max-h);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  display: flex;
-  flex-direction: column;
-  padding-top: 12px;
-  padding-bottom: 0px;
-  padding-left: 14px;
-  padding-right: 14px;
-  font-size: 15px;
-  font-style: italic;
-  line-height: 1.35;
-  letter-spacing: -0.003em;
-  color: color-mix(in srgb, var(--color-text) 90%, transparent);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 18px);
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* legacy Edge */
-}
-/* Hide the scrollbar (WebKit/Chromium) — scroll-back is signalled by the fade. */
-.stext-cap::-webkit-scrollbar {
-  display: none;
-}
-.stext-cap p {
-  /* Bottom-anchor the text when it's shorter than the viewport, avoiding the
-     justify-content:flex-end overflow bug that makes the top unscrollable. */
-  margin: auto 0 0;
-}
-.stext-cap .tentative {
-  color: inherit;
-}
-.scaret {
-  display: inline-block;
-  width: 2px;
-  height: 1.02em;
-  translate: 0 3px;
-  margin-left: 1px;
-  background: var(--s-accent);
-  border-radius: 2px;
-  animation: scaret-blink 1.05s steps(1) infinite;
-}
-@keyframes scaret-blink {
-  50% {
-    opacity: 0;
-  }
 }
 
 /* base row — dot (left) | waveform (center) | timer + cancel (right).
@@ -335,18 +201,6 @@
     box-shadow: 0 0 0 7px transparent;
   }
 }
-.stimer {
-  font-size: 12px;
-  color: var(--s-faint);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  opacity: 0;
-  transition: opacity 240ms ease 80ms;
-}
-.scard.open .stimer {
-  opacity: 1;
-}
-
 /* Waveform — reactive only after the first microphone callback. While arming,
    a muted travelling pulse acknowledges the shortcut without pretending that
    audio levels are already being received. */
@@ -433,6 +287,10 @@
 }
 .sx:active {
   transform: scale(0.95);
+}
+.sx:focus-visible {
+  outline: 2px solid var(--s-accent);
+  outline-offset: 1px;
 }
 
 /* working state (transcribing / polishing) — spinner + label */

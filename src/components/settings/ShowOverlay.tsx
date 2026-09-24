@@ -1,34 +1,19 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { Dropdown } from "../ui/Dropdown";
+import { ToggleSwitch } from "../ui/ToggleSwitch";
 import { SettingContainer } from "../ui/SettingContainer";
 import { useSettings } from "../../hooks/useSettings";
-import type { OverlayPosition, OverlayStyle } from "@/bindings";
+import type { OverlayPosition } from "@/bindings";
 
 interface ShowOverlayProps {
-  descriptionMode?: "inline" | "tooltip";
   grouped?: boolean;
 }
 
 export const ShowOverlay: React.FC<ShowOverlayProps> = React.memo(
-  ({ descriptionMode = "tooltip", grouped = false }) => {
+  ({ grouped = false }) => {
     const { t } = useTranslation();
     const { getSetting, updateSetting, isUpdating } = useSettings();
-
-    const styleOptions = [
-      {
-        value: "none",
-        label: t("settings.advanced.overlay.style.options.none"),
-      },
-      {
-        value: "minimal",
-        label: t("settings.advanced.overlay.style.options.minimal"),
-      },
-      {
-        value: "live",
-        label: t("settings.advanced.overlay.style.options.live"),
-      },
-    ];
 
     const positionOptions = [
       {
@@ -41,8 +26,7 @@ export const ShowOverlay: React.FC<ShowOverlayProps> = React.memo(
       },
     ];
 
-    const selectedStyle = (getSetting("overlay_style") ||
-      "live") as OverlayStyle;
+    const overlayShown = getSetting("overlay_style") !== "none";
     // Only "top" and "bottom" are selectable; anything else (empty, or a legacy
     // "none" from before the position was retired) falls back to "bottom".
     const selectedPosition: OverlayPosition =
@@ -50,27 +34,21 @@ export const ShowOverlay: React.FC<ShowOverlayProps> = React.memo(
 
     return (
       <>
-        <SettingContainer
-          title={t("settings.advanced.overlay.style.title")}
+        <ToggleSwitch
+          checked={overlayShown}
+          onChange={(enabled) =>
+            updateSetting("overlay_style", enabled ? "minimal" : "none")
+          }
+          isUpdating={isUpdating("overlay_style")}
+          label={t("settings.advanced.overlay.style.title")}
           description={t("settings.advanced.overlay.style.description")}
-          descriptionMode={descriptionMode}
           grouped={grouped}
-        >
-          <Dropdown
-            options={styleOptions}
-            selectedValue={selectedStyle}
-            onSelect={(value) =>
-              updateSetting("overlay_style", value as OverlayStyle)
-            }
-            disabled={isUpdating("overlay_style")}
-          />
-        </SettingContainer>
+        />
 
-        {selectedStyle !== "none" && (
+        {overlayShown && (
           <SettingContainer
             title={t("settings.advanced.overlay.position.title")}
             description={t("settings.advanced.overlay.position.description")}
-            descriptionMode={descriptionMode}
             grouped={grouped}
           >
             <Dropdown

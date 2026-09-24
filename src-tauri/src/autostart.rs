@@ -19,9 +19,7 @@ use tauri_plugin_autostart::ManagerExt;
 /// startup. This mirrors the pre-existing behavior of ignoring
 /// enable()/disable() results.
 pub fn apply_autostart(app: &AppHandle, enabled: bool) {
-    #[cfg(target_os = "macos")]
     if macos::login_item_api_available() {
-        macos::remove_plugin_launch_agent(app);
         macos::set_login_item(enabled);
         return;
     }
@@ -41,13 +39,9 @@ pub fn apply_autostart(app: &AppHandle, enabled: bool) {
     }
 }
 
-#[cfg(target_os = "macos")]
 mod macos {
-    use std::path::{Path, PathBuf};
-
     use objc2::runtime::AnyClass;
     use objc2_service_management::{SMAppService, SMAppServiceStatus};
-    use tauri::{AppHandle, Manager};
 
     /// `SMAppService` requires macOS 13. The ServiceManagement framework is
     /// linked unconditionally (it has existed since 10.6), so looking up the
@@ -87,33 +81,6 @@ mod macos {
         }
     }
 
-    /// Remove the launch agent plist that tauri-plugin-autostart (via the
-    /// auto-launch crate) wrote on older versions, so login doesn't start the
-    /// app twice after migrating to `SMAppService`. Runs on every launch;
-    /// missing file is the normal case.
-    pub fn remove_plugin_launch_agent(app: &AppHandle) {
-        let Ok(home) = app.path().home_dir() else {
-            return;
-        };
-        remove_launch_agent_file(&plugin_launch_agent_path(&home, &app.package_info().name));
-    }
-
-    /// Path of the plist the auto-launch crate writes:
-    /// `~/Library/LaunchAgents/{app name}.plist`.
-    fn plugin_launch_agent_path(home: &Path, app_name: &str) -> PathBuf {
-        home.join("Library")
-            .join("LaunchAgents")
-            .join(format!("{}.plist", app_name))
-    }
-
-    fn remove_launch_agent_file(path: &Path) {
-        match std::fs::remove_file(path) {
-            Ok(()) => log::info!("Removed legacy autostart launch agent {:?}", path),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => log::warn!("Failed to remove legacy launch agent {:?}: {}", path, e),
-        }
-    }
-
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -125,31 +92,6 @@ mod macos {
         #[test]
         fn sm_app_service_class_resolves() {
             assert!(login_item_api_available());
-        }
-
-        #[test]
-        fn launch_agent_path_matches_auto_launch_crate() {
-            let path = plugin_launch_agent_path(Path::new("/Users/someone"), "Handy");
-            assert_eq!(
-                path,
-                Path::new("/Users/someone/Library/LaunchAgents/Handy.plist")
-            );
-        }
-
-        #[test]
-        fn removes_existing_launch_agent() {
-            let dir = tempfile::tempdir().unwrap();
-            let plist = dir.path().join("Handy.plist");
-            std::fs::write(&plist, "<plist/>").unwrap();
-
-            remove_launch_agent_file(&plist);
-            assert!(!plist.exists());
-        }
-
-        #[test]
-        fn missing_launch_agent_is_a_no_op() {
-            let dir = tempfile::tempdir().unwrap();
-            remove_launch_agent_file(&dir.path().join("Handy.plist"));
         }
     }
 }

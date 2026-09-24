@@ -4,9 +4,20 @@ import { toast } from "sonner";
 import { ChevronDown } from "lucide-react";
 import type { ModelInfo } from "@/bindings";
 import type { ModelCardStatus } from "./ModelCard";
-import ModelCard, { isLegacySource } from "./ModelCard";
-import HandyTextLogo from "../icons/HandyTextLogo";
+import ModelCard from "./ModelCard";
+import KandyTextLogo from "../icons/KandyTextLogo";
 import { useModelStore } from "../../stores/modelStore";
+
+/**
+ * White card on the dark onboarding backdrop. `.scope-light` re-points the
+ * palette so the ModelCard inside renders with its light-theme tokens even
+ * when the app is in dark mode.
+ */
+const LightCard: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="scope-light bg-surface text-text rounded-xl border border-edge shadow-card">
+    {children}
+  </div>
+);
 
 interface OnboardingProps {
   onModelSelected: () => void;
@@ -20,7 +31,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     selectModel,
     downloadingModels,
     verifyingModels,
-    extractingModels,
     downloadProgress,
     downloadStats,
     cancelDownload,
@@ -31,14 +41,22 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
 
   const isBusy = selectedModelId !== null;
 
-  // Curate the download list: legacy (.bin/ONNX) downloads are deprecated and
-  // never shown here (they still appear in the compatible section if already on
-  // disk). The catalog arrives rank-sorted, so the first two recommended models
-  // are the featured picks — currently Parakeet Unified (English) and Nemotron
-  // Streaming (multilingual). Everything else hides behind "Show all".
+  // Curate the download list. The catalog arrives rank-sorted, so the first two
+  // recommended models are the featured picks. Everything else hides behind
+  // "Show all".
   const { downloadable, topPicks, otherRecommended, rest } = useMemo(() => {
+    // Kandy is Norwegian-first: hide any download candidate that does not list
+    // Norwegian (nb / no / nn) among its supported languages. Models with an
+    // empty `supported_languages` are treated as multilingual (Whisper etc.
+    // report language coverage via `supports_language_selection`, and those
+    // handle every language Whisper does — norsk included).
+    const supportsNorwegian = (m: ModelInfo): boolean => {
+      const langs = m.supported_languages ?? [];
+      if (langs.length === 0) return m.supports_language_selection;
+      return langs.some((c) => ["nb", "no", "nn"].includes(c.toLowerCase()));
+    };
     const downloadable = models.filter(
-      (m: ModelInfo) => !m.is_downloaded && !isLegacySource(m),
+      (m: ModelInfo) => !m.is_downloaded && supportsNorwegian(m),
     );
     const recommended = downloadable.filter((m: ModelInfo) => m.is_recommended);
     // `models` arrives in editorial rank order (the backend sorts by rank_of,
@@ -58,7 +76,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   // there is no curated subset to collapse, so just show the full list.
   const showRest = showAll || !hasRecommended;
 
-  // Watch for the selected model to finish downloading + verifying + extracting
+  // Watch for the selected model to finish downloading + verifying
   useEffect(() => {
     if (!selectedModelId) {
       hasStartedSelection.current = false;
@@ -68,13 +86,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     const model = models.find((m) => m.id === selectedModelId);
     const stillDownloading = selectedModelId in downloadingModels;
     const stillVerifying = selectedModelId in verifyingModels;
-    const stillExtracting = selectedModelId in extractingModels;
 
     if (
       model?.is_downloaded &&
       !stillDownloading &&
       !stillVerifying &&
-      !stillExtracting &&
       !hasStartedSelection.current
     ) {
       hasStartedSelection.current = true;
@@ -95,7 +111,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
     models,
     downloadingModels,
     verifyingModels,
-    extractingModels,
     selectModel,
     onModelSelected,
     t,
@@ -124,7 +139,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   };
 
   const getModelStatus = (modelId: string): ModelCardStatus => {
-    if (modelId in extractingModels) return "extracting";
     if (modelId in verifyingModels) return "verifying";
     if (modelId in downloadingModels) return "downloading";
     return "downloadable";
@@ -144,34 +158,51 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col p-6 gap-4 inset-0">
+    <div className="scope-dark bg-brand-gradient text-text h-screen w-full flex flex-col p-6 gap-4 overflow-y-auto">
       <div className="flex flex-col items-center gap-2 shrink-0">
-        <HandyTextLogo width={200} />
-        <p className="text-text/70 max-w-md font-medium mx-auto">
+        <KandyTextLogo width={200} wordmark="text" />
+        <p className="text-text/85 max-w-md font-medium mx-auto">
           {t("onboarding.subtitle")}
         </p>
       </div>
 
       <div className="max-w-[600px] w-full mx-auto text-center flex-1 flex flex-col min-h-0">
         <div className="space-y-6 pb-6">
-          {models.some((m: ModelInfo) => m.is_downloaded) && (
+          {models.some(
+            (m: ModelInfo) =>
+              m.is_downloaded &&
+              ((m.supported_languages ?? []).length === 0
+                ? m.supports_language_selection
+                : (m.supported_languages ?? []).some((c) =>
+                    ["nb", "no", "nn"].includes(c.toLowerCase()),
+                  )),
+          ) && (
             <div className="space-y-3">
               <div className="text-left">
-                <h2 className="text-sm font-medium text-text/60">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-mid-gray">
                   {t("onboarding.existingModelsTitle")}
                 </h2>
               </div>
               {models
-                .filter((m: ModelInfo) => m.is_downloaded)
+                .filter(
+                  (m: ModelInfo) =>
+                    m.is_downloaded &&
+                    ((m.supported_languages ?? []).length === 0
+                      ? m.supports_language_selection
+                      : (m.supported_languages ?? []).some((c) =>
+                          ["nb", "no", "nn"].includes(c.toLowerCase()),
+                        )),
+                )
                 .map((model: ModelInfo) => (
-                  <ModelCard
-                    key={model.id}
-                    model={model}
-                    status={getExistingModelStatus(model.id)}
-                    disabled={isBusy}
-                    onSelect={handleSelectExistingModel}
-                    showRecommended={false}
-                  />
+                  <LightCard key={model.id}>
+                    <ModelCard
+                      model={model}
+                      status={getExistingModelStatus(model.id)}
+                      disabled={isBusy}
+                      onSelect={handleSelectExistingModel}
+                      showRecommended={false}
+                    />
+                  </LightCard>
                 ))}
             </div>
           )}
@@ -179,47 +210,49 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
           {downloadable.length > 0 && (
             <div className="space-y-3">
               <div className="text-left">
-                <h2 className="text-sm font-medium text-text/60">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-mid-gray">
                   {t("onboarding.downloadModelsTitle")}
                 </h2>
               </div>
 
               {topPicks.map((model: ModelInfo) => (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  variant="featured"
-                  status={getModelStatus(model.id)}
-                  disabled={isBusy}
-                  onSelect={handleDownloadModel}
-                  onDownload={handleDownloadModel}
-                  onCancel={handleCancelDownload}
-                  downloadProgress={getModelDownloadProgress(model.id)}
-                  downloadSpeed={getModelDownloadSpeed(model.id)}
-                  showRecommended={false}
-                />
+                <LightCard key={model.id}>
+                  <ModelCard
+                    model={model}
+                    variant="featured"
+                    status={getModelStatus(model.id)}
+                    disabled={isBusy}
+                    onSelect={handleDownloadModel}
+                    onDownload={handleDownloadModel}
+                    onCancel={handleCancelDownload}
+                    downloadProgress={getModelDownloadProgress(model.id)}
+                    downloadSpeed={getModelDownloadSpeed(model.id)}
+                    showRecommended={false}
+                  />
+                </LightCard>
               ))}
 
               {otherRecommended.map((model: ModelInfo) => (
-                <ModelCard
-                  key={model.id}
-                  model={model}
-                  status={getModelStatus(model.id)}
-                  disabled={isBusy}
-                  onSelect={handleDownloadModel}
-                  onDownload={handleDownloadModel}
-                  onCancel={handleCancelDownload}
-                  downloadProgress={getModelDownloadProgress(model.id)}
-                  downloadSpeed={getModelDownloadSpeed(model.id)}
-                  showRecommended={false}
-                />
+                <LightCard key={model.id}>
+                  <ModelCard
+                    model={model}
+                    status={getModelStatus(model.id)}
+                    disabled={isBusy}
+                    onSelect={handleDownloadModel}
+                    onDownload={handleDownloadModel}
+                    onCancel={handleCancelDownload}
+                    downloadProgress={getModelDownloadProgress(model.id)}
+                    downloadSpeed={getModelDownloadSpeed(model.id)}
+                    showRecommended={false}
+                  />
+                </LightCard>
               ))}
 
               {hasRecommended && rest.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setShowAll((v) => !v)}
-                  className="flex items-center justify-center gap-1.5 mx-auto py-1 text-sm font-medium text-text/60 hover:text-text transition-colors"
+                  className="flex items-center justify-center gap-1.5 mx-auto py-1 px-2 rounded-md text-sm font-medium text-text/85 hover:text-text transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-off-white"
                 >
                   {showAll
                     ? t("onboarding.showFewerModels")
@@ -236,18 +269,19 @@ const Onboarding: React.FC<OnboardingProps> = ({ onModelSelected }) => {
 
               {showRest &&
                 rest.map((model: ModelInfo) => (
-                  <ModelCard
-                    key={model.id}
-                    model={model}
-                    status={getModelStatus(model.id)}
-                    disabled={isBusy}
-                    onSelect={handleDownloadModel}
-                    onDownload={handleDownloadModel}
-                    onCancel={handleCancelDownload}
-                    downloadProgress={getModelDownloadProgress(model.id)}
-                    downloadSpeed={getModelDownloadSpeed(model.id)}
-                    showRecommended={false}
-                  />
+                  <LightCard key={model.id}>
+                    <ModelCard
+                      model={model}
+                      status={getModelStatus(model.id)}
+                      disabled={isBusy}
+                      onSelect={handleDownloadModel}
+                      onDownload={handleDownloadModel}
+                      onCancel={handleCancelDownload}
+                      downloadProgress={getModelDownloadProgress(model.id)}
+                      downloadSpeed={getModelDownloadSpeed(model.id)}
+                      showRecommended={false}
+                    />
+                  </LightCard>
                 ))}
             </div>
           )}
