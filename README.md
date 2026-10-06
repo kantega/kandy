@@ -1,5 +1,7 @@
 # Kandy
 
+![Kandy: møteopptak med transkripsjon og referat](docs/screenshots/mote.png)
+
 ## Ta i bruk Kandy (for alle Mac-brukere i Kantega)
 
 Kandy er Kantegas egen transkibering og møtereferat. Alt du sier transkriberes
@@ -83,6 +85,33 @@ dra den nye appen til Programmer.
 Kandy kjører Whisper lokalt på GPU via Metal.
 Whisper er valgt fordi det er den eneste lokale modellfamilien med god
 norsk.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/historikk.png" alt="Historikk: alt du har diktert, med lyd"></td>
+    <td width="50%"><img src="docs/screenshots/generelt.png" alt="Generelt: hurtigtast, språk og mikrofon"></td>
+  </tr>
+  <tr>
+    <td><b>Historikk.</b> Alt du har diktert, med lyd, søkbart og eksporterbart.</td>
+    <td><b>Generelt.</b> Hurtigtast, språk og mikrofon.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/modeller.png" alt="Modeller: Whisper-modeller lastet ned lokalt"></td>
+    <td><img src="docs/screenshots/modeller-llm-proxy.png" alt="Nøkkel og modell for Kantega LLM-proxy"></td>
+  </tr>
+  <tr>
+    <td><b>Modeller.</b> Whisper-modellene ligger lokalt på maskinen.</td>
+    <td><b>Kantega LLM-proxy.</b> Nøkkel og modell for referat og etterbehandling.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/etterbehandling.png" alt="Etterbehandling: prompt og egen hurtigtast"></td>
+    <td><img src="docs/screenshots/avansert-ord.png" alt="Avansert: egendefinerte ord og fyllord"></td>
+  </tr>
+  <tr>
+    <td><b>Etterbehandling.</b> Eget prompt og egen hurtigtast.</td>
+    <td><b>Egendefinerte ord.</b> Lær Whisper navn og fagord.</td>
+  </tr>
+</table>
 
 ## Personvern
 
