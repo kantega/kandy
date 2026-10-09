@@ -1290,6 +1290,170 @@
       "default_quant": "Q5_K_M",
       "recommended": false,
       "recommended_rank": null
-    }
+    },
+    {
+      "id": "NbAiLab/nb-whisper-small",
+      "revision": "e9bb5cb83cb74c96239fd506163aa97cff2fce4c",
+      "slug": "nb-whisper-small",
+      "name": "NB-Whisper Small",
+      "architecture": "whisper",
+      "family": "whisper",
+      "parameters": "244M",
+      "description": "Nasjonalbiblioteket's Norwegian fine-tune of Whisper. Legacy ggml format, no mirror.",
+      "base_model": "openai/whisper-small",
+      "license": "apache-2.0",
+      "language_count": 3,
+      "languages": [
+        "no",
+        "nn",
+        "en"
+      ],
+      "capabilities": {
+        "streaming": false,
+        "lang_detect": false,
+        "timestamps": "segment"
+      },
+      "speed_score": 78,
+      "accuracy_score": 80,
+      "files": [
+        {"filename": "ggml-model-q5_0.bin", "quant": "Q5_0", "size_bytes": 175209680, "sha256": "2a9025afb6e825fc4ae6a46671e0cb2f43e62f1dec87270deea6fe61b5285a20"},
+        {"filename": "ggml-model.bin", "quant": "F16", "size_bytes": 487601984, "sha256": "a0fc1555f5bd51044b0ea88bb9b7891e1ee331a8087eddb0afc3a05839db48ab"}
+      ],
+      "default_quant": "Q5_0",
+      "recommended": false,
+      "recommended_rank": null,
+      "experimental": true
+    },
+    {
+      "id": "NbAiLab/nb-whisper-medium",
+      "revision": "0ed074d5985bd56ca4140159a9dbffbc3fb5117e",
+      "slug": "nb-whisper-medium",
+      "name": "NB-Whisper Medium",
+      "architecture": "whisper",
+      "family": "whisper",
+      "parameters": "769M",
+      "description": "Nasjonalbiblioteket's Norwegian fine-tune of Whisper. Legacy ggml format, no mirror.",
+      "base_model": "openai/whisper-medium",
+      "license": "apache-2.0",
+      "language_count": 3,
+      "languages": [
+        "no",
+        "nn",
+        "en"
+      ],
+      "capabilities": {
+        "streaming": false,
+        "lang_detect": false,
+        "timestamps": "segment"
+      },
+      "speed_score": 42,
+      "accuracy_score": 84,
+      "files": [
+        {"filename": "ggml-model-q5_0.bin", "quant": "Q5_0", "size_bytes": 539212484, "sha256": "18733de634af639a43b0f8c5f5a2ea0920de4c5b32a5570ec130981581c0e5e7"},
+        {"filename": "ggml-model.bin", "quant": "F16", "size_bytes": 1533763076, "sha256": "f73141401d203ee77fc7ddf7bf97926a8a85fe85faa6066a6920e4815f48a73d"}
+      ],
+      "default_quant": "Q5_0",
+      "recommended": false,
+      "recommended_rank": null,
+      "experimental": true
+    },
+    {
+      "id": "NbAiLab/nb-whisper-large",
+      "revision": "8c6249fdeeb4dcd05e5735a4c39640607eb6e4ac",
+      "slug": "nb-whisper-large",
+      "name": "NB-Whisper Large",
+      "architecture": "whisper",
+      "family": "whisper",
+      "parameters": "1.5B",
+      "description": "Nasjonalbiblioteket's Norwegian fine-tune of Whisper. Legacy ggml format, no mirror.",
+      "base_model": "openai/whisper-large",
+      "license": "apache-2.0",
+      "language_count": 3,
+      "languages": [
+        "no",
+        "nn",
+        "en"
+      ],
+      "capabilities": {
+        "streaming": false,
+        "lang_detect": false,
+        "timestamps": "segment"
+      },
+      "speed_score": 23,
+      "accuracy_score": 89,
+      "files": [
+        {"filename": "ggml-model-q5_0.bin", "quant": "Q5_0", "size_bytes": 1081140203, "sha256": "feb5951ae694a62cfeb81fb501f6cfa8cc50d96bcddb1e4e8215f7006bac23a2"},
+        {"filename": "ggml-model.bin", "quant": "F16", "size_bytes": 3095033483, "sha256": "0f2f66f22e11a7c7da3c582d8e5c89cb2c0011753ba9c7c9731e320a4ba33e76"}
+      ],
+      "default_quant": "Q5_0",
+      "recommended": false,
+      "recommended_rank": null,
+      "experimental": true
+    },
+    {
+        "id": "handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf",
+        "revision": "8139c4ec14bdc45c361adf8d57c27c28e7478272",
+        "slug": "nemotron-3.5-asr-streaming-0.6b",
+        "name": "Nemotron 3.5 ASR Streaming 0.6B",
+        "architecture": "parakeet",
+        "family": "parakeet",
+        "parameters": "0.6B",
+        "description": "NVIDIA FastConformer with Norwegian. Batch only in Kandy for now; base of Nasjonalbiblioteket's nb-asr fine-tunes.",
+        "base_model": "nvidia/nemotron-3.5-asr-streaming-0.6b",
+        "license": "openmdw-1.1",
+        "language_count": 32,
+        "languages": [
+          "en-US",
+          "en-GB",
+          "es-US",
+          "es-ES",
+          "fr-FR",
+          "fr-CA",
+          "it-IT",
+          "pt-BR",
+          "pt-PT",
+          "nl-NL",
+          "de-DE",
+          "tr-TR",
+          "ru-RU",
+          "ar-AR",
+          "hi-IN",
+          "ja-JP",
+          "ko-KR",
+          "vi-VN",
+          "uk-UA",
+          "pl-PL",
+          "sv-SE",
+          "cs-CZ",
+          "nb-NO",
+          "da-DK",
+          "bg-BG",
+          "fi-FI",
+          "hr-HR",
+          "sk-SK",
+          "zh-CN",
+          "hu-HU",
+          "ro-RO",
+          "et-EE"
+        ],
+        "capabilities": {
+          "streaming": true,
+          "lang_detect": true,
+          "timestamps": "token"
+        },
+        "speed_score": 100,
+        "accuracy_score": 28,
+        "files": [
+          {"filename": "nemotron-3.5-asr-streaming-0.6b-Q4_K_M.gguf", "quant": "Q4_K_M", "size_bytes": 495831520, "sha256": "41c99fa5fb6f3d35f68e79adc3e755eca2232a8d921178bd647b71194792b8fd"},
+          {"filename": "nemotron-3.5-asr-streaming-0.6b-Q5_K_M.gguf", "quant": "Q5_K_M", "size_bytes": 559647200, "sha256": "86429e8c4f7fdcf9b3312269ad1ca6669478ba7805331c4aea7a2e33e9910d65"},
+          {"filename": "nemotron-3.5-asr-streaming-0.6b-Q6_K.gguf", "quant": "Q6_K", "size_bytes": 621356512, "sha256": "4ff802c6207c4a7df23242003fd2aa849a1ab02bba6bc80c3db02e7e82606c28"},
+          {"filename": "nemotron-3.5-asr-streaming-0.6b-Q8_0.gguf", "quant": "Q8_0", "size_bytes": 751094240, "sha256": "b94545b313b3223fda7b2857a52681da813935c2127643d1e9ff0c23d988089c"},
+          {"filename": "nemotron-3.5-asr-streaming-0.6b-F16.gguf", "quant": "F16", "size_bytes": 1277750240, "sha256": "f21a0cea64d232981def7f8f2b7ab322459703a2e89359962c042c57159755b1"}
+        ],
+        "default_quant": "Q8_0",
+        "recommended": false,
+        "recommended_rank": null,
+        "experimental": true
+      }
   ]
 }

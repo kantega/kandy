@@ -146,6 +146,9 @@ async changeShortcutActivationSetting(activation: ShortcutActivation) : Promise<
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Hold-or-toggle only: presses held at least this long are push-to-talk.
+ */
 async changeHoldThresholdSetting(thresholdMs: number) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_hold_threshold_setting", { thresholdMs }) };
@@ -154,6 +157,9 @@ async changeHoldThresholdSetting(thresholdMs: number) : Promise<Result<null, str
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Experimental detector implementation; Silero remains the stable default.
+ */
 async changeVadBackendSetting(backend: VadBackend) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("change_vad_backend_setting", { backend }) };
@@ -447,6 +453,20 @@ async rescanLocalModels() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Transcribe one clip with several downloaded models, one after another, for
+ * side-by-side comparison. `file_path` is any audio file; `None` uses the
+ * latest dictation from history. Each model loads into its own session, so
+ * the active model is not switched.
+ */
+async compareModels(filePath: string | null, modelIds: string[]) : Promise<Result<ModelComparison, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("compare_models", { filePath, modelIds }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getAvailableMicrophones() : Promise<Result<AudioDevice[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_available_microphones") };
@@ -734,7 +754,21 @@ settings_schema_version?: number;
  * Defaults to empty on partial stores; the load path merges in the
  * default bindings for any missing keys before the settings are used.
  */
-bindings?: Partial<{ [key in string]: ShortcutBinding }>; shortcut_activation?: ShortcutActivation; hold_threshold_ms?: number; vad_backend?: VadBackend; audio_feedback?: boolean; audio_feedback_volume?: number; sound_theme?: SoundTheme; autostart_enabled?: boolean; selected_model?: string; onboarding_completed?: boolean; selected_microphone?: string | null; 
+bindings?: Partial<{ [key in string]: ShortcutBinding }>; 
+/**
+ * Replaces the earlier `push_to_talk` bool; stores missing this key are
+ * migrated from it on load.
+ */
+shortcut_activation?: ShortcutActivation; 
+/**
+ * Hold-or-toggle only: a press held at least this long is push-to-talk,
+ * anything shorter is a tap that locks recording on.
+ */
+hold_threshold_ms?: number; 
+/**
+ * Experimental detector implementation. Silero remains the stable default.
+ */
+vad_backend?: VadBackend; audio_feedback?: boolean; audio_feedback_volume?: number; sound_theme?: SoundTheme; autostart_enabled?: boolean; selected_model?: string; onboarding_completed?: boolean; selected_microphone?: string | null; 
 /**
  * Which input channel to use on the selected microphone device.
  * None means "average all channels".
@@ -794,7 +828,24 @@ export type HistoryStats = { total: number; saved: number }
 export type HistoryUpdatePayload = { action: "added"; entry: HistoryEntry } | { action: "updated"; entry: HistoryEntry } | { action: "deleted"; id: number } | { action: "toggled"; id: number }
 export type Meeting = { id: number; title: string; timestamp: number; audio_file: string; transcript: string; summary: string | null; summary_prompt: string | null; model: string | null; duration_secs: number }
 export type MeetingUpdatePayload = { action: "added"; meeting: Meeting } | { action: "updated"; meeting: Meeting } | { action: "deleted"; id: number }
-export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; accuracy_score: number; speed_score: number; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_language_detection: boolean }
+export type ModelComparison = { 
+/**
+ * File name of the clip that was transcribed.
+ */
+source_name: string; audio_seconds: number; results: ModelComparisonResult[] }
+/**
+ * One model's result in a side-by-side comparison.
+ */
+export type ModelComparisonResult = { model_id: string; text: string; 
+/**
+ * Wall-clock seconds for load + transcription.
+ */
+seconds: number; 
+/**
+ * Set when this model failed; `text` is then empty.
+ */
+error: string | null }
+export type ModelInfo = { id: string; name: string; description: string; filename: string; source: ModelSource; size_mb: number; is_downloaded: boolean; is_downloading: boolean; partial_size: number; accuracy_score: number; speed_score: number; is_recommended: boolean; supported_languages: string[]; supports_language_selection: boolean; is_custom: boolean; supports_language_detection: boolean; is_experimental: boolean }
 /**
  * Where a model comes from and how Kandy obtains it.
  */
@@ -860,15 +911,35 @@ uncovered_bindings: string[];
  * warning banner appears and explains why recording refused.
  */
 recorder_blocked: boolean }
+/**
+ * How the transcribe shortcut's key events drive a recording.
+ */
+export type ShortcutActivation = 
+/**
+ * Press to start, press again to stop.
+ */
+"toggle" | 
+/**
+ * Hold to record, release to stop.
+ */
+"push_to_talk" | 
+/**
+ * Hold to record and release to stop, or tap to keep recording until the
+ * next press. Which one it was is decided by how long the key was held
+ * (`hold_threshold_ms`).
+ */
+"hold_or_toggle"
 export type ShortcutBinding = { id: string; name: string; description: string; default_binding: string; current_binding: string }
-export type ShortcutActivation = "toggle" | "push_to_talk" | "hold_or_toggle"
-export type VadBackend = "silero" | "earshot"
 export type SoundTheme = "marimba" | "pop"
 /**
  * UI appearance mode. `System` follows the OS `prefers-color-scheme`; `Light`
  * and `Dark` force one of the two palettes Kandy ships.
  */
 export type Theme = "system" | "light" | "dark"
+/**
+ * Voice-activity detector implementation.
+ */
+export type VadBackend = "silero" | "earshot"
 
 /** tauri-specta globals **/
 

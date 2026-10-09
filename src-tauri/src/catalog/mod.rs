@@ -4,8 +4,9 @@
 //! `handy-computer` Hugging Face org (card `transcribe_cpp` capabilities +
 //! benchmarks, a GGUF header probe for name/params, and local curation for the
 //! recommended set). It is compiled into the binary so Kandy ships a complete
-//! model list with zero network access. Kandy is Whisper-only, so the generator
-//! and this file only ever carry Whisper-family entries.
+//! model list with zero network access. The generator keeps Whisper only;
+//! the hand-maintained `nb-whisper.json` adds NB-Whisper and the experimental
+//! Nemotron (parakeet) entries.
 //!
 //! Each entry is normalised into a [`ModelDescriptor`]. Its explicit
 //! `capabilities` map becomes a [`CapabilityProbe`] with confident `Some(..)`
@@ -57,6 +58,10 @@ struct CatalogModel {
     /// from `recommended_rank`, which only orders the full list.
     #[serde(default)]
     recommended: bool,
+    /// Hand-added entries we have not benchmarked or mirrored (NB-Whisper).
+    /// Badged "Experimental" in the UI and never part of the recommended set.
+    #[serde(default)]
+    experimental: bool,
 }
 
 /// Only the capabilities the app reads; serde ignores the rest (`streaming`,
@@ -100,6 +105,7 @@ impl From<&CatalogModel> for ModelDescriptor {
             accuracy_score: m.accuracy_score.unwrap_or(0.0) / 100.0,
             recommended_rank: m.recommended_rank,
             recommended: m.recommended,
+            experimental: m.experimental,
         }
     }
 }
@@ -222,17 +228,18 @@ mod tests {
         assert_eq!(before, ids.len(), "catalog descriptor ids must be unique");
     }
 
-    /// Kandy ships Whisper-family models only — Norwegian is not covered by the
-    /// other transcribe-cpp architectures.
+    /// Whisper is the only family the generator ships; parakeet entries are
+    /// hand-added and must stay experimental.
     #[test]
-    fn catalog_is_whisper_only() {
+    fn non_whisper_catalog_entries_are_experimental() {
         for model in CATALOG.iter() {
-            assert_eq!(
-                model.caps.architecture.as_deref(),
-                Some("whisper"),
-                "{}: non-Whisper models must not ship in the catalog",
-                model.id
-            );
+            if model.caps.architecture.as_deref() != Some("whisper") {
+                assert!(
+                    model.experimental,
+                    "{}: non-Whisper models must be experimental",
+                    model.id
+                );
+            }
         }
     }
 
@@ -261,6 +268,35 @@ mod tests {
                 assert!(m.size_bytes > 0, "{}: mirror entry lacks a size", d.id);
                 assert!(m.url.starts_with("https://"), "{}: bad url {}", d.id, m.url);
             }
+        }
+    }
+
+    #[test]
+    fn experimental_models_are_never_recommended() {
+        for d in CATALOG.iter().filter(|d| d.experimental) {
+            assert!(!d.recommended, "{}: experimental and recommended", d.id);
+            assert!(
+                d.recommended_rank.is_none(),
+                "{}: experimental models must not carry an editorial rank",
+                d.id
+            );
+        }
+    }
+
+    #[test]
+    fn nb_whisper_entries_are_present_and_experimental() {
+        let nb: Vec<&ModelDescriptor> = CATALOG
+            .iter()
+            .filter(|d| matches!(&d.source, ModelSource::HuggingFace { repo_id, .. } if repo_id.starts_with("NbAiLab/")))
+            .collect();
+        assert!(!nb.is_empty(), "NB-Whisper entries missing from catalog");
+        for d in nb {
+            assert!(d.experimental, "{}: NB-Whisper must be experimental", d.id);
+            assert!(
+                d.id.ends_with(".bin"),
+                "{}: NB-Whisper ships legacy ggml .bin",
+                d.id
+            );
         }
     }
 

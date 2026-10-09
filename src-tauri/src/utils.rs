@@ -1,4 +1,5 @@
 use crate::managers::audio::AudioRecordingManager;
+use crate::managers::transcription::TranscriptionManager;
 use crate::overlay::hide_recording_overlay;
 use crate::shortcut;
 use crate::tray::{set_tray_state, TrayIconState};
@@ -29,6 +30,7 @@ pub fn cancel_current_operation(app: &AppHandle) {
     let audio_manager = app.state::<Arc<AudioRecordingManager>>();
     let recording_was_active = audio_manager.is_recording();
     audio_manager.cancel_recording();
+    app.state::<Arc<TranscriptionManager>>().cancel_stream();
 
     // Update tray icon and hide overlay
     set_tray_state(app, TrayIconState::Idle);

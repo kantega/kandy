@@ -48,6 +48,7 @@ pub struct ModelInfo {
     pub supports_language_selection: bool, // Whether the user can explicitly pick a language
     pub is_custom: bool,      // Whether this is a user-provided custom model
     pub supports_language_detection: bool, // Whether the model can auto-detect language (gates the "Auto" option)
+    pub is_experimental: bool, // Hand-added catalog entry without benchmarks or mirror (badged "Experimental")
 }
 
 /// The base code Kandy matches a language *intent* on: a tag's primary subtag,
@@ -57,7 +58,7 @@ pub struct ModelInfo {
 /// real code the engine needs.
 /// Base language code used for matching: strips region/script subtags and
 /// folds Whisper's `no`/`nn` onto Kandy's canonical `nb`.
-fn base_language(language: &str) -> &str {
+pub(crate) fn base_language(language: &str) -> &str {
     let base = match language.split_once('-') {
         Some((base, _)) => base,
         None => language,
@@ -135,6 +136,8 @@ pub struct ModelDescriptor {
     /// onboarding (and badged "Recommended"). A model can be ranked for ordering
     /// without being in this set.
     pub recommended: bool,
+    /// Hand-added, unbenchmarked entry (see `catalog.json` `experimental`).
+    pub experimental: bool,
 }
 
 impl ModelDescriptor {
@@ -201,6 +204,7 @@ impl ModelDescriptor {
             // custom files (those bypass the descriptor and set this directly).
             is_custom: false,
             supports_language_detection: self.caps.supports_language_detect.unwrap_or(false),
+            is_experimental: self.experimental,
         }
     }
 }
@@ -942,6 +946,7 @@ impl ModelManager {
                     supports_language_selection: caps.supports_language_selection,
                     is_custom: true,
                     supports_language_detection: caps.supports_language_detection,
+                    is_experimental: false,
                 },
             );
         }
@@ -1080,6 +1085,7 @@ impl ModelManager {
                         supports_language_selection: caps.supports_language_selection,
                         is_custom: false,
                         supports_language_detection: caps.supports_language_detection,
+                        is_experimental: false,
                     },
                 );
             }
@@ -1749,6 +1755,7 @@ mod tests {
                 supports_language_selection: true,
                 is_custom: false,
                 supports_language_detection: true,
+                is_experimental: false,
             },
         );
 
@@ -1845,6 +1852,7 @@ mod tests {
             accuracy_score: 0.5,
             recommended_rank: None,
             recommended: true,
+            experimental: false,
         };
         let status = DiskStatus::default();
 

@@ -9,6 +9,10 @@ interface MeetingRecorderProps {
   elapsed: number;
   isDragging: boolean;
   hasKey: boolean;
+  /** Automatic summary is configured and a key is present. */
+  autoSummarize: boolean;
+  summarizeThisMeeting: boolean;
+  onToggleSummarizeThisMeeting: (value: boolean) => void;
   onStart: () => void;
   onStop: () => void;
   onUpload: () => void;
@@ -19,11 +23,18 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({
   elapsed,
   isDragging,
   hasKey,
+  autoSummarize,
+  summarizeThisMeeting,
+  onToggleSummarizeThisMeeting,
   onStart,
   onStop,
   onUpload,
 }) => {
   const { t } = useTranslation();
+  // Opt-out is only meaningful while a summary could still be requested:
+  // during recording and transcription, before the transcript is sent.
+  const showSummaryOptOut =
+    autoSummarize && (phase === "recording" || phase === "transcribing");
 
   return (
     <div className="space-y-2">
@@ -107,6 +118,18 @@ export const MeetingRecorder: React.FC<MeetingRecorderProps> = ({
               {t("meeting.hint")}
             </p>
           </>
+        )}
+
+        {showSummaryOptOut && (
+          <label className="flex items-center gap-2 text-xs text-mid-gray cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="accent-[var(--color-logo-primary)]"
+              checked={summarizeThisMeeting}
+              onChange={(e) => onToggleSummarizeThisMeeting(e.target.checked)}
+            />
+            {t("meeting.summarizeThisMeeting")}
+          </label>
         )}
 
         {isDragging && (

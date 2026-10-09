@@ -59,6 +59,8 @@
   --ov-work-w: 216px; /* working pill (transcribing / processing) -- wide enough
                          to center longer labels */
   --ov-base-h: 40px; /* control-row height (.sbase) */
+  --ov-live-w: 520px; /* live-text window width (LIVE_OVERLAY_WIDTH) */
+  --ov-live-h: 150px; /* live-text window height (LIVE_OVERLAY_HEIGHT) */
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -111,6 +113,40 @@
 }
 .ov-stage.top {
   align-items: flex-start; /* top placement: flush to the top edge */
+}
+
+/* Live text: stack the text card and the pill. The main axis becomes vertical,
+   so justify-content now pins the pill to the screen edge. The native window
+   grows to --ov-live-w x --ov-live-h (LIVE_OVERLAY_* in overlay.rs). */
+.ov-stage.live {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.ov-stage.live.top {
+  justify-content: flex-start;
+}
+
+.slive {
+  width: calc(var(--ov-live-w) - 16px);
+  max-height: calc(var(--ov-live-h) - var(--ov-base-h) - 16px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: var(--s-surface);
+  border: 1px solid var(--s-border);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.slive::-webkit-scrollbar {
+  display: none;
+}
+.slive-tentative {
+  color: var(--s-muted);
 }
 
 /* Compact pill: fade the whole container in/out (the pill itself never pops or

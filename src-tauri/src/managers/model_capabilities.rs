@@ -16,11 +16,12 @@ use std::path::Path;
 use super::gguf_meta::{self, GgufError, GgufMetadata};
 
 /// Architectures Kandy ships support for — the value stored in
-/// `general.architecture`. Kandy is Whisper-only (Norwegian is only covered by
-/// the Whisper family), so anything else is surfaced as
+/// `general.architecture`. Whisper is the primary family. `parakeet` covers
+/// NVIDIA's FastConformer line (Nemotron 3.5 ASR streaming has Norwegian and
+/// is the base of Nasjonalbiblioteket's fine-tunes); it is exposed as an
+/// experimental catalog entry. Anything else is surfaced as
 /// [`Compatibility::MaybeIncompatible`] and never offered by local discovery.
-/// transcribe-cpp itself can load more archs; that is deliberately not exposed.
-pub const KNOWN_ARCHES: &[&str] = &["whisper"];
+pub const KNOWN_ARCHES: &[&str] = &["whisper", "parakeet"];
 
 // GGUF metadata keys transcribe-cpp writes for ASR models.
 const KEY_ARCH: &str = "general.architecture";
@@ -195,17 +196,11 @@ mod tests {
         );
     }
 
-    /// Kandy is Whisper-only: a non-Whisper ASR arch transcribe-cpp could
-    /// otherwise load must not be promised as compatible.
+    /// An ASR arch transcribe-cpp could load but Kandy does not ship must not
+    /// be promised as compatible.
     #[test]
-    fn non_whisper_asr_arch_is_not_promised() {
-        for arch in [
-            "parakeet",
-            "moonshine",
-            "sensevoice",
-            "voxtral",
-            "qwen3_asr",
-        ] {
+    fn unshipped_asr_arch_is_not_promised() {
+        for arch in ["moonshine", "sensevoice", "voxtral", "qwen3_asr"] {
             let meta = meta_with(vec![(
                 "general.architecture",
                 GgufValue::String(arch.into()),

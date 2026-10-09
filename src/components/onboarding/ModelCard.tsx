@@ -158,6 +158,11 @@ const ModelCard: React.FC<ModelCardProps> = ({
             {model.is_custom && (
               <Badge variant="secondary">{t("modelSelector.custom")}</Badge>
             )}
+            {model.is_experimental && (
+              <Badge variant="secondary">
+                {t("modelSelector.experimental")}
+              </Badge>
+            )}
             {status === "switching" && (
               <Badge variant="secondary">
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />

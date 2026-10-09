@@ -30,7 +30,7 @@ use managers::audio::AudioRecordingManager;
 use managers::history::HistoryManager;
 use managers::meeting::MeetingManager;
 use managers::model::ModelManager;
-use managers::transcription::TranscriptionManager;
+use managers::transcription::{StreamRouter, TranscriptionManager};
 use std::sync::Arc;
 use tauri::image::Image;
 pub use transcription_coordinator::TranscriptionCoordinator;
@@ -126,12 +126,16 @@ fn initialize_core_logic(app_handle: &AppHandle) {
 
     let model_manager =
         Arc::new(ModelManager::new(app_handle).expect("Failed to initialize model manager"));
+    // Shared by the recorder (feeds frames) and the transcription manager
+    // (opens a live stream per dictation).
+    let stream_router = Arc::new(StreamRouter::new());
     let transcription_manager = Arc::new(
-        TranscriptionManager::new(app_handle, model_manager.clone())
+        TranscriptionManager::new(app_handle, model_manager.clone(), stream_router.clone())
             .expect("Failed to initialize transcription manager"),
     );
     let recording_manager = Arc::new(
-        AudioRecordingManager::new(app_handle).expect("Failed to initialize recording manager"),
+        AudioRecordingManager::new(app_handle, stream_router)
+            .expect("Failed to initialize recording manager"),
     );
     let history_manager =
         Arc::new(HistoryManager::new(app_handle).expect("Failed to initialize history manager"));
@@ -551,6 +555,7 @@ pub fn run(cli_args: CliArgs) {
             commands::models::get_current_model,
             commands::models::get_transcription_model_status,
             commands::models::rescan_local_models,
+            commands::models::compare_models,
             commands::audio::get_available_microphones,
             commands::audio::set_selected_microphone,
             commands::audio::get_available_output_devices,
@@ -690,8 +695,12 @@ pub fn run(cli_args: CliArgs) {
                     ModelManager::new(&app_handle).expect("Failed to initialize model manager"),
                 );
                 let transcription_manager = Arc::new(
-                    TranscriptionManager::new(&app_handle, model_manager.clone())
-                        .expect("Failed to initialize transcription manager"),
+                    TranscriptionManager::new(
+                        &app_handle,
+                        model_manager.clone(),
+                        Arc::new(StreamRouter::new()),
+                    )
+                    .expect("Failed to initialize transcription manager"),
                 );
                 app_handle.manage(model_manager);
                 app_handle.manage(transcription_manager);

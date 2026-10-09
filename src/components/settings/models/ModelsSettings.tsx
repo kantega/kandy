@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { RefreshCw, Search } from "lucide-react";
+import { toast } from "sonner";
 import { IconButton } from "@/components/ui/IconButton";
 import { Input } from "@/components/ui/Input";
 import type { ModelCardStatus } from "@/components/onboarding";
@@ -9,6 +10,7 @@ import { ModelCard } from "@/components/onboarding";
 import { useModelStore } from "@/stores/modelStore";
 import type { ModelInfo } from "@/bindings";
 import { LlmSettingsCard } from "../LlmSettingsCard";
+import { ModelComparison } from "./ModelComparison";
 
 export const ModelsSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -65,7 +67,12 @@ export const ModelsSettings: React.FC = () => {
   const handleModelSelect = async (modelId: string) => {
     setSwitchingModelId(modelId);
     try {
-      await selectModel(modelId);
+      const ok = await selectModel(modelId);
+      if (!ok) {
+        toast.error(t("onboarding.errors.selectModel"), {
+          description: useModelStore.getState().error ?? undefined,
+        });
+      }
     } finally {
       setSwitchingModelId(null);
     }
@@ -242,6 +249,7 @@ export const ModelsSettings: React.FC = () => {
           </div>
         )}
       </div>
+      <ModelComparison />
       <LlmSettingsCard />
     </div>
   );

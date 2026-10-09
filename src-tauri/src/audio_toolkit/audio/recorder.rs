@@ -59,12 +59,18 @@ type SharedVad = Arc<Mutex<Box<dyn vad::VoiceActivityDetector>>>;
 
 pub type LevelCallback = Arc<dyn Fn(Vec<f32>) + Send + Sync + 'static>;
 
+/// Receives every 16 kHz frame that is kept for the recording (after VAD), as
+/// it is produced. Used to feed live streaming transcription. Must be cheap:
+/// it runs on the capture consumer thread.
+pub type FrameCallback = Arc<dyn Fn(&[f32]) + Send + Sync + 'static>;
+
 pub struct AudioRecorder {
     device: Option<Device>,
     cmd_tx: Option<mpsc::Sender<Cmd>>,
     worker_handle: Option<std::thread::JoinHandle<()>>,
     vad: Option<SharedVad>,
     level_cb: Option<LevelCallback>,
+    frame_cb: Option<FrameCallback>,
     /// Which input channel to use. None = average all (original behavior).
     selected_channel: Option<usize>,
     /// Preferred stream config cached per device name. The two HAL property
@@ -86,6 +92,7 @@ impl AudioRecorder {
             worker_handle: None,
             vad: None,
             level_cb: None,
+            frame_cb: None,
             selected_channel: None,
             config_cache: Arc::new(Mutex::new(None)),
             stream_error: Arc::new(AtomicBool::new(false)),
@@ -102,6 +109,14 @@ impl AudioRecorder {
         F: Fn(Vec<f32>) + Send + Sync + 'static,
     {
         self.level_cb = Some(Arc::new(cb));
+        self
+    }
+
+    pub fn with_frame_callback<F>(mut self, cb: F) -> Self
+    where
+        F: Fn(&[f32]) + Send + Sync + 'static,
+    {
+        self.frame_cb = Some(Arc::new(cb));
         self
     }
 
@@ -140,6 +155,7 @@ impl AudioRecorder {
         let vad = self.vad.clone();
         // Move the optional level callback into the worker thread
         let level_cb = self.level_cb.clone();
+        let frame_cb = self.frame_cb.clone();
         let selected_channel = self.selected_channel;
         let config_cache = Arc::clone(&self.config_cache);
         let stream_error = Arc::clone(&self.stream_error);
@@ -264,8 +280,9 @@ impl AudioRecorder {
                     // Timestamp for the play()-returned -> first-samples gap the
                     // init handshake can't see (hardware dependent).
                     let stream_running_at = Instant::now();
-                    let processor =
+                    let mut processor =
                         CaptureProcessor::new(sample_rate, vad, level_cb, stream_running_at);
+                    processor.frame_cb = frame_cb;
                     run_consumer(
                         processor,
                         sample_consumer,
@@ -572,10 +589,18 @@ fn handle_frame(
     samples: &[f32],
     vad_policy: VadPolicy,
     vad: &Option<SharedVad>,
+    frame_cb: &Option<FrameCallback>,
     out_buf: &mut Vec<f32>,
 ) {
+    let mut keep = |buf: &[f32]| {
+        out_buf.extend_from_slice(buf);
+        if let Some(cb) = frame_cb {
+            cb(buf);
+        }
+    };
+
     if vad_policy == VadPolicy::Disabled {
-        out_buf.extend_from_slice(samples);
+        keep(samples);
         return;
     }
 
@@ -585,11 +610,11 @@ fn handle_frame(
             .push_frame(samples)
             .unwrap_or(VadFrame::Speech(samples))
         {
-            VadFrame::Speech(buf) => out_buf.extend_from_slice(buf),
+            VadFrame::Speech(buf) => keep(buf),
             VadFrame::Noise => {}
         }
     } else {
-        out_buf.extend_from_slice(samples);
+        keep(samples);
     }
 }
 
@@ -635,6 +660,7 @@ struct CaptureProcessor {
     frame_samples: usize,
     vad: Option<SharedVad>,
     level_cb: Option<LevelCallback>,
+    frame_cb: Option<FrameCallback>,
     stream_running_at: Instant,
     visualizer: AudioVisualiser,
     frame_resampler: FrameResampler,
@@ -687,6 +713,7 @@ impl CaptureProcessor {
             frame_samples,
             vad,
             level_cb,
+            frame_cb: None,
             stream_running_at,
             visualizer,
             frame_resampler,
@@ -757,7 +784,13 @@ impl CaptureProcessor {
 
         let vad_policy = self.vad_policy;
         self.frame_resampler.push(raw, |frame: &[f32]| {
-            handle_frame(frame, vad_policy, &self.vad, &mut self.processed_samples)
+            handle_frame(
+                frame,
+                vad_policy,
+                &self.vad,
+                &self.frame_cb,
+                &mut self.processed_samples,
+            )
         });
 
         if let Some(started) = self.awaiting_first_captured_chunk.take() {
@@ -794,7 +827,13 @@ impl CaptureProcessor {
     fn finish_recording(&mut self) -> Vec<f32> {
         let vad_policy = self.vad_policy;
         self.frame_resampler.finish(|frame: &[f32]| {
-            handle_frame(frame, vad_policy, &self.vad, &mut self.processed_samples)
+            handle_frame(
+                frame,
+                vad_policy,
+                &self.vad,
+                &self.frame_cb,
+                &mut self.processed_samples,
+            )
         });
 
         // Diagnostic for VAD audio still withheld when capture stopped; it is

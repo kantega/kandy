@@ -7,6 +7,13 @@ import { syncLanguageFromSettings } from "@/i18n";
 
 type OverlayState = "recording" | "transcribing" | "processing";
 
+interface StreamText {
+  committed: string;
+  tentative: string;
+}
+
+const EMPTY_STREAM_TEXT: StreamText = { committed: "", tentative: "" };
+
 // Number of reactive bars in the waveform. Mic levels arrive as 16 FFT
 // buckets; we take the first N.
 const WAVE_BARS = 9;
@@ -22,6 +29,9 @@ const RecordingOverlay: React.FC = () => {
   const [levels, setLevels] = useState<number[]>(Array(WAVE_BARS).fill(0));
   // Overlay placement (top vs bottom of the screen).
   const [position, setPosition] = useState<"top" | "bottom">("bottom");
+  // Live text from a streaming model. Empty for Whisper, which never streams.
+  const [streamText, setStreamText] = useState<StreamText>(EMPTY_STREAM_TEXT);
+  const liveRef = useRef<HTMLDivElement>(null);
 
   const smoothedLevelsRef = useRef<number[]>(Array(16).fill(0));
 
@@ -33,6 +43,7 @@ const RecordingOverlay: React.FC = () => {
         // recording-ready while the awaits below are in flight; resetting after
         // them would overwrite that event and leave the overlay stuck arming.
         if (overlayState === "recording") {
+          setStreamText(EMPTY_STREAM_TEXT);
           setCaptureReady(false);
           smoothedLevelsRef.current = Array(16).fill(0);
           setLevels(Array(WAVE_BARS).fill(0));
@@ -62,6 +73,13 @@ const RecordingOverlay: React.FC = () => {
         setCaptureReady(true);
       });
 
+      const unlistenStream = await listen<StreamText>(
+        "stream-text",
+        (event) => {
+          setStreamText(event.payload);
+        },
+      );
+
       const unlistenLevel = await listen<number[]>("mic-level", (event) => {
         const newLevels = event.payload as number[];
         // Exponential smoothing across the 16 buckets, then take the first N
@@ -78,12 +96,19 @@ const RecordingOverlay: React.FC = () => {
         unlistenShow();
         unlistenHide();
         unlistenReady();
+        unlistenStream();
         unlistenLevel();
       };
     };
 
     setupEventListeners();
   }, []);
+
+  // Keep the newest words in view as the text grows.
+  useEffect(() => {
+    const el = liveRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [streamText]);
 
   if (!isVisible) return null;
 
@@ -150,13 +175,30 @@ const RecordingOverlay: React.FC = () => {
       ? t("overlay.processing")
       : t("overlay.transcribing");
 
+  const hasLiveText =
+    streamText.committed.length > 0 || streamText.tentative.length > 0;
+
+  const liveCard = hasLiveText && (
+    <div className="slive" ref={liveRef} aria-live="polite">
+      <span>{streamText.committed}</span>
+      <span className="slive-tentative">{streamText.tentative}</span>
+    </div>
+  );
+
+  const pill = (
+    <div className={`scard compact ${working && isVisible ? "cworking" : ""}`}>
+      {working ? workingRow(workLabel) : listeningRow}
+    </div>
+  );
+
+  // The pill stays flush with the screen edge; live text sits on its far side.
   return (
-    <div className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}>
-      <div
-        className={`scard compact ${working && isVisible ? "cworking" : ""}`}
-      >
-        {working ? workingRow(workLabel) : listeningRow}
-      </div>
+    <div
+      className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""} ${hasLiveText ? "live" : ""}`}
+    >
+      {position === "bottom" && liveCard}
+      {pill}
+      {position === "top" && liveCard}
     </div>
   );
 };

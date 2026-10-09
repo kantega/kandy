@@ -9,16 +9,21 @@ use log::{debug, error, info, warn};
 use serde::Serialize;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{mpsc, Arc, Condvar, Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter, Manager};
 use transcribe_cpp::{
-    Backend, Model, ModelOptions, RunExtension, RunOptions, Session, Task, WhisperRunOptions,
+    Backend, Model, ModelOptions, RunExtension, RunOptions, Session, StreamOptions, Task,
+    WhisperRunOptions,
 };
 
 /// Unload the model after this much idle time.
 const MODEL_IDLE_UNLOAD: Duration = Duration::from_secs(5 * 60);
+
+/// How long `finalize_stream` waits for the worker. Generous because the
+/// worker may still be waiting for the first model load, with queued frames.
+const STREAM_FINALIZE_REPLY_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// Fuzzy custom-word correction threshold (lower = stricter).
 const WORD_CORRECTION_THRESHOLD: f64 = 0.18;
@@ -64,11 +69,93 @@ impl Drop for LoadingGuard {
     }
 }
 
+/// Commands sent to the streaming worker thread. Frames and the finalize
+/// request share one channel, so FIFO order guarantees every fed frame is
+/// processed before finalize runs.
+enum StreamCmd {
+    Feed(Vec<f32>),
+    /// Flush the stream and reply with the raw final text, or `None` when no
+    /// stream was active (the caller falls back to batch transcription).
+    Finalize(mpsc::Sender<Option<String>>),
+    Cancel,
+}
+
+/// Routes 16 kHz frames from the audio recorder to the active streaming
+/// worker. Shared between the [`TranscriptionManager`] (opens and closes the
+/// route) and the recorder's frame callback (feeds frames). A frame with no
+/// stream open costs one relaxed atomic load.
+pub struct StreamRouter {
+    tx: Mutex<Option<mpsc::Sender<StreamCmd>>>,
+    open: AtomicBool,
+}
+
+impl StreamRouter {
+    pub fn new() -> Self {
+        Self {
+            tx: Mutex::new(None),
+            open: AtomicBool::new(false),
+        }
+    }
+
+    fn open(&self) -> mpsc::Receiver<StreamCmd> {
+        let (tx, rx) = mpsc::channel();
+        *self.tx.lock().unwrap() = Some(tx);
+        self.open.store(true, Ordering::Release);
+        rx
+    }
+
+    /// Close the route to new frames and hand back the sender for the final
+    /// `Finalize`/`Cancel` command.
+    fn take(&self) -> Option<mpsc::Sender<StreamCmd>> {
+        self.open.store(false, Ordering::Release);
+        self.tx.lock().unwrap().take()
+    }
+
+    fn clear(&self) {
+        let _ = self.take();
+    }
+
+    /// Forward one frame to the active streaming worker, if any.
+    pub fn feed(&self, frame: &[f32]) {
+        if !self.open.load(Ordering::Acquire) {
+            return;
+        }
+        if let Some(tx) = self.tx.lock().unwrap().as_ref() {
+            let _ = tx.send(StreamCmd::Feed(frame.to_vec()));
+        }
+    }
+
+    pub fn is_open(&self) -> bool {
+        self.open.load(Ordering::Acquire)
+    }
+}
+
+impl Default for StreamRouter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Clears the worker flag on every worker exit, including a panic inside a
+/// native call that unwinds the detached worker thread.
+struct StreamWorkerGuard {
+    worker_running: Arc<AtomicBool>,
+}
+
+impl Drop for StreamWorkerGuard {
+    fn drop(&mut self) {
+        self.worker_running.store(false, Ordering::Release);
+    }
+}
+
 #[derive(Clone)]
 pub struct TranscriptionManager {
     /// The loaded transcribe-cpp `Session`; it keeps its `Model` alive
     /// internally, so repeated dictation reuses the session without reloading.
     engine: Arc<Mutex<Option<Session>>>,
+    router: Arc<StreamRouter>,
+    /// True from `start_stream` until the worker thread exits.
+    stream_worker_running: Arc<AtomicBool>,
     model_manager: Arc<ModelManager>,
     app_handle: AppHandle,
     current_model_id: Arc<Mutex<Option<String>>>,
@@ -81,9 +168,15 @@ pub struct TranscriptionManager {
 }
 
 impl TranscriptionManager {
-    pub fn new(app_handle: &AppHandle, model_manager: Arc<ModelManager>) -> Result<Self> {
+    pub fn new(
+        app_handle: &AppHandle,
+        model_manager: Arc<ModelManager>,
+        router: Arc<StreamRouter>,
+    ) -> Result<Self> {
         let manager = Self {
             engine: Arc::new(Mutex::new(None)),
+            router,
+            stream_worker_running: Arc::new(AtomicBool::new(false)),
             model_manager,
             app_handle: app_handle.clone(),
             current_model_id: Arc::new(Mutex::new(None)),
@@ -386,6 +479,240 @@ impl TranscriptionManager {
         }
     }
 
+    /// Begin live streaming transcription for a dictation. Non-blocking: a
+    /// worker waits for any in-progress model load, checks that the loaded
+    /// model can stream, and begins the stream. Frames fed before that queue
+    /// on the channel. Models that cannot stream (Whisper) make the worker
+    /// return the engine at once; `finalize_stream` then reports `None` and
+    /// the caller transcribes in batch as before.
+    pub fn start_stream(&self) {
+        if self.router.is_open()
+            || self
+                .stream_worker_running
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                .is_err()
+        {
+            warn!("start_stream called while a stream worker is already active");
+            return;
+        }
+        let rx = self.router.open();
+        let manager = self.clone();
+        thread::spawn(move || manager.run_stream_worker(rx));
+    }
+
+    fn run_stream_worker(&self, rx: mpsc::Receiver<StreamCmd>) {
+        let _guard = StreamWorkerGuard {
+            worker_running: Arc::clone(&self.stream_worker_running),
+        };
+
+        {
+            let mut is_loading = self.is_loading.lock().unwrap();
+            while *is_loading {
+                is_loading = self.loading_condvar.wait(is_loading).unwrap();
+            }
+        }
+
+        let model_id = self.get_current_model().unwrap_or_default();
+        // Take the engine for the whole stream; this excludes a concurrent
+        // batch run. It is returned when the worker finishes.
+        let taken = self.lock_engine().take();
+        let Some(mut engine) = taken else {
+            info!("Live text: no model loaded, using batch transcription");
+            self.router.clear();
+            drain_until_finalize(rx);
+            return;
+        };
+
+        let (supports_streaming, languages) = {
+            let model = engine.model();
+            let caps = model.capabilities();
+            info!(
+                "Live text: model '{}' arch='{}' supports_streaming={}",
+                model_id,
+                model.arch(),
+                caps.supports_streaming
+            );
+            (caps.supports_streaming, caps.languages)
+        };
+        if !supports_streaming {
+            self.return_engine(engine, &model_id);
+            self.router.clear();
+            drain_until_finalize(rx);
+            return;
+        }
+
+        let settings = get_settings(&self.app_handle);
+        let effective_language =
+            effective_language_for_model(&settings, self.model_manager.as_ref(), &model_id);
+        let hint_languages = self.hint_languages(&model_id, languages);
+        let run_options = RunOptions {
+            task: Task::Transcribe,
+            language: run_language(&effective_language, &hint_languages),
+            ..Default::default()
+        };
+
+        let mut reply: Option<mpsc::Sender<Option<String>>> = None;
+        let mut result: Option<String> = None;
+        let started = 'stream: {
+            let mut stream = match engine.stream(&run_options, &StreamOptions::default()) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Live text: failed to begin stream: {}", e);
+                    break 'stream false;
+                }
+            };
+            self.touch_activity();
+            info!(
+                "Live text started (model '{}', language {:?})",
+                model_id, run_options.language
+            );
+
+            while let Ok(cmd) = rx.recv() {
+                match cmd {
+                    StreamCmd::Feed(pcm) => match stream.feed(&pcm) {
+                        Ok(update) => {
+                            if update.committed_changed || update.tentative_changed {
+                                let text = stream.text();
+                                crate::overlay::emit_stream_text(
+                                    &self.app_handle,
+                                    &text.committed,
+                                    &text.tentative,
+                                );
+                            }
+                        }
+                        Err(e) => warn!("Live text: feed failed: {}", e),
+                    },
+                    StreamCmd::Finalize(tx) => {
+                        result = match stream.finalize() {
+                            Ok(_) => Some(stream.text().full),
+                            Err(e) => {
+                                error!("Live text: finalize failed: {}; using batch", e);
+                                None
+                            }
+                        };
+                        reply = Some(tx);
+                        break;
+                    }
+                    StreamCmd::Cancel => {
+                        stream.reset();
+                        break;
+                    }
+                }
+            }
+            true
+        };
+
+        self.return_engine(engine, &model_id);
+        if !started {
+            self.router.clear();
+            drain_until_finalize(rx);
+            return;
+        }
+        if let Some(tx) = reply {
+            let _ = tx.send(result);
+        }
+    }
+
+    /// Flush the live stream and return its post-processed text. `Ok(None)`
+    /// means no usable stream ran and the caller should transcribe in batch.
+    pub fn finalize_stream(&self) -> Result<Option<String>> {
+        let Some(tx) = self.router.take() else {
+            return Ok(None);
+        };
+        let (reply_tx, reply_rx) = mpsc::channel();
+        if tx.send(StreamCmd::Finalize(reply_tx)).is_err() {
+            return Ok(None);
+        }
+        let raw = match reply_rx.recv_timeout(STREAM_FINALIZE_REPLY_TIMEOUT) {
+            Ok(Some(text)) => text,
+            Ok(None) | Err(mpsc::RecvTimeoutError::Disconnected) => return Ok(None),
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                return Err(anyhow::anyhow!(
+                    "Timed out waiting {:?} for live transcription to finalize",
+                    STREAM_FINALIZE_REPLY_TIMEOUT
+                ));
+            }
+        };
+        let settings = get_settings(&self.app_handle);
+        let text = post_process_transcription_text(raw, &settings);
+        info!("Live text finalized: {}", crate::utils::redact_text(&text));
+        Ok(Some(text))
+    }
+
+    /// Abandon any live stream without producing text.
+    pub fn cancel_stream(&self) {
+        if let Some(tx) = self.router.take() {
+            let _ = tx.send(StreamCmd::Cancel);
+        }
+    }
+
+    /// Languages to validate a language hint against. The loaded model's own
+    /// list wins. Some GGUFs (Nemotron 3.5) omit `general.languages`, so the
+    /// engine reports none even though its prompt table knows them; then the
+    /// catalog list is used, so an explicit Norwegian choice still reaches the
+    /// model instead of silently falling back to auto-detect.
+    fn hint_languages(&self, model_id: &str, engine_languages: Vec<String>) -> Vec<String> {
+        if !engine_languages.is_empty() {
+            return engine_languages;
+        }
+        self.model_manager
+            .get_model_info(model_id)
+            .map(|info| info.supported_languages)
+            .unwrap_or_default()
+    }
+
+    /// Prefer the live stream's text; fall back to batch transcription of the
+    /// recorded samples when no stream ran or it produced nothing.
+    pub fn finalize_stream_or_transcribe(&self, audio: Vec<f32>) -> Result<String> {
+        match self.finalize_stream()? {
+            Some(text) if !text.trim().is_empty() => Ok(text),
+            _ => self.transcribe(audio),
+        }
+    }
+
+    /// Transcribe `audio` with a specific downloaded model, loaded into its own
+    /// session and dropped afterwards. The active engine is left untouched, so
+    /// this is safe to use for side-by-side model comparison. Uses the same
+    /// language and text post-processing as dictation.
+    pub fn transcribe_with_model(&self, model_id: &str, audio: &[f32]) -> Result<String> {
+        let path = self.model_manager.get_model_path(model_id)?;
+        let model = Model::load_with(
+            &path,
+            &ModelOptions {
+                backend: Backend::Auto,
+                device: None,
+            },
+        )
+        .map_err(|e| anyhow::anyhow!("Failed to load model {}: {}", model_id, e))?;
+        let mut session = model
+            .session()
+            .map_err(|e| anyhow::anyhow!("Failed to create session for {}: {}", model_id, e))?;
+
+        let settings = get_settings(&self.app_handle);
+        let effective_language =
+            effective_language_for_model(&settings, self.model_manager.as_ref(), model_id);
+        let hint_languages = self.hint_languages(model_id, model.capabilities().languages);
+        let family = if settings.custom_words.is_empty() || model.arch() != "whisper" {
+            None
+        } else {
+            Some(RunExtension::Whisper(WhisperRunOptions {
+                initial_prompt: Some(settings.custom_words.join(", ")),
+                ..Default::default()
+            }))
+        };
+        let run_options = RunOptions {
+            task: Task::Transcribe,
+            language: run_language(&effective_language, &hint_languages),
+            family,
+            ..Default::default()
+        };
+        let raw = session
+            .run(audio, &run_options)
+            .map(|t| t.text)
+            .map_err(|e| anyhow::anyhow!("{} failed: {}", model_id, e))?;
+        Ok(post_process_transcription_text(raw, &settings))
+    }
+
     pub fn transcribe(&self, audio: Vec<f32>) -> Result<String> {
         self.touch_activity();
 
@@ -435,7 +762,8 @@ impl TranscriptionManager {
             }
         };
 
-        let model_languages = engine.model().capabilities().languages;
+        let model_languages =
+            self.hint_languages(&active_model, engine.model().capabilities().languages);
         debug!(
             "transcribe-cpp model '{}' on '{}': languages={:?}",
             active_model,
@@ -444,8 +772,10 @@ impl TranscriptionManager {
         );
 
         let transcribe_result = catch_unwind(AssertUnwindSafe(|| -> Result<String> {
-            // Custom words become the whisper initial prompt.
-            let family = if settings.custom_words.is_empty() {
+            // Custom words become the whisper initial prompt. Other families
+            // (parakeet) have no prompt slot; they still get the fuzzy
+            // post-correction in `post_process_transcription_text`.
+            let family = if settings.custom_words.is_empty() || engine.model().arch() != "whisper" {
                 None
             } else {
                 Some(RunExtension::Whisper(WhisperRunOptions {
@@ -559,13 +889,43 @@ fn effective_language_for_model(
 /// model actually advertises (per capabilities().languages) is passed;
 /// otherwise auto-detect rather than failing with UNSUPPORTED_LANGUAGE.
 fn run_language(effective_language: &str, model_languages: &[String]) -> Option<String> {
+    use crate::managers::model::base_language;
     if effective_language == "auto" {
         return None;
     }
-    model_languages
+    // Exact code first, then the same base language in the model's own
+    // spelling (`nb` intent → `nb-NO`), so a catalog/engine spelling mismatch
+    // cannot drop the hint.
+    let chosen = model_languages
         .iter()
-        .any(|l| l == effective_language)
-        .then(|| effective_language.to_string())
+        .find(|l| *l == effective_language)
+        .or_else(|| {
+            let wanted = base_language(effective_language);
+            model_languages.iter().find(|l| base_language(l) == wanted)
+        })
+        .cloned();
+    if chosen.is_none() && !model_languages.is_empty() {
+        warn!(
+            "Language '{}' not advertised by the model; using auto-detect",
+            effective_language
+        );
+    }
+    chosen
+}
+
+/// Answer a pending `Finalize` with `None` so `finalize_stream` falls back to
+/// batch without waiting for the timeout. Exits on `Cancel` or a closed channel.
+fn drain_until_finalize(rx: mpsc::Receiver<StreamCmd>) {
+    while let Ok(cmd) = rx.recv() {
+        match cmd {
+            StreamCmd::Feed(_) => {}
+            StreamCmd::Finalize(tx) => {
+                let _ = tx.send(None);
+                return;
+            }
+            StreamCmd::Cancel => return,
+        }
+    }
 }
 
 /// Custom-word correction (whisper already saw the words as its initial
@@ -725,6 +1085,57 @@ mod tests {
     }
 
     #[test]
+    fn closed_router_drops_frames() {
+        let router = StreamRouter::new();
+        assert!(!router.is_open());
+        router.feed(&[0.0; 480]);
+        assert!(router.take().is_none());
+    }
+
+    #[test]
+    fn open_router_forwards_frames_until_taken() {
+        let router = StreamRouter::new();
+        let rx = router.open();
+        router.feed(&[0.25; 3]);
+        match rx.try_recv() {
+            Ok(StreamCmd::Feed(frame)) => assert_eq!(frame, vec![0.25; 3]),
+            _ => panic!("expected a fed frame"),
+        }
+        assert!(router.take().is_some());
+        assert!(!router.is_open());
+        router.feed(&[0.5; 3]);
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn drain_answers_finalize_with_none_after_skipping_frames() {
+        let (tx, rx) = mpsc::channel();
+        let (reply_tx, reply_rx) = mpsc::channel();
+        tx.send(StreamCmd::Feed(vec![0.0; 10])).unwrap();
+        tx.send(StreamCmd::Finalize(reply_tx)).unwrap();
+        drain_until_finalize(rx);
+        assert_eq!(reply_rx.recv().unwrap(), None);
+    }
+
+    #[test]
+    fn drain_stops_on_cancel() {
+        let (tx, rx) = mpsc::channel();
+        tx.send(StreamCmd::Cancel).unwrap();
+        drain_until_finalize(rx);
+    }
+
+    #[test]
+    fn norwegian_intent_selects_nemotron_locale() {
+        let nemotron = languages(&["en-US", "sv-SE", "nb-NO", "da-DK"]);
+        let effective = crate::managers::model::effective_language("nb", &nemotron, true);
+        assert_eq!(effective, "nb-NO");
+        assert_eq!(
+            run_language(&effective, &nemotron),
+            Some("nb-NO".to_string())
+        );
+    }
+
+    #[test]
     fn optional_text_transform_falls_back_to_raw_text_after_panic() {
         let raw = "rå transkripsjon".to_string();
         let result = fail_open_text_transform(raw.clone(), |_| {
@@ -744,6 +1155,18 @@ mod tests {
         // Language-agnostic models report an empty list and stay on auto.
         assert_eq!(run_language("en", &languages(&[])), None);
         assert_eq!(run_language("fr", &languages(&["en", "nb"])), None);
+    }
+
+    #[test]
+    fn run_language_matches_base_language_in_model_spelling() {
+        assert_eq!(
+            run_language("nb", &languages(&["en-US", "nb-NO"])),
+            Some("nb-NO".to_string())
+        );
+        assert_eq!(
+            run_language("no", &languages(&["en", "nb"])),
+            Some("nb".to_string())
+        );
     }
 
     #[test]

@@ -2,12 +2,19 @@
 
 ![Kandy: møteopptak med transkripsjon og referat](docs/screenshots/mote.png)
 
-## Ta i bruk Kandy (for alle Mac-brukere i Kantega)
+## Hva Kandy er
 
-Kandy er Kantegas egen transkibering og møtereferat. Alt du sier transkriberes
-**lokalt på din Mac**. Ingenting går til OpenAI, Microsoft eller Google.
-Det eneste som kan forlate maskinen er tekst til Kantega LLM-proxy, og
-bare hvis du legger inn nøkkel og bruker referat eller etterbehandling.
+Kandy er en fork av [Handy](https://github.com/cjpais/Handy) av CJ Pais,
+tilpasset norsk og Kantega LLM-proxy. Det er ikke et hovedverktøy for
+Kantega, men et forsøk på en gratis og lokal modelløsning for
+transkribering og møtereferat. Bruk på eget ansvar.
+
+Alt du sier transkriberes **lokalt på din Mac**. Ingenting går til
+OpenAI, Microsoft eller Google. Det eneste som kan forlate maskinen er
+tekst til Kantega LLM-proxy, og bare hvis du legger inn nøkkel og bruker
+referat eller etterbehandling.
+
+## Ta i bruk Kandy (Mac)
 
 Det finnes ingen ferdig installasjonsfil ennå, så appen bygges på din
 egen maskin. Det tar 10 til 20 minutter første gang og krever ingen
@@ -85,6 +92,26 @@ dra den nye appen til Programmer.
 Kandy kjører Whisper lokalt på GPU via Metal.
 Whisper er valgt fordi det er den eneste lokale modellfamilien med god
 norsk.
+
+Modellisten har også **NB-Whisper** (Small, Medium, Large), Nasjonalbibliotekets
+norsktrente Whisper fra [NbAiLab](https://huggingface.co/NbAiLab). De er merket
+«Eksperimentell». De lastes ned direkte fra Hugging Face, har ingen speil, og
+språk må velges manuelt (bokmål, nynorsk eller engelsk). Nøyaktighetstallene i
+listen er ikke målt, de er kopiert fra tilsvarende Whisper-størrelse.
+
+Også eksperimentell: **Nemotron 3.5 ASR Streaming 0.6B** fra NVIDIA, som har
+norsk bokmål og er basismodellen for Nasjonalbibliotekets nyeste
+`nb-asr-nemotron35`-modeller. Med Nemotron valgt viser diktering teksten
+live i opptakspillen mens du snakker, og den ferdige teksten limes inn med
+en gang du stopper. Velg norsk under Generelt, så brukes modellens `nb-NO`.
+Live tekst gjelder foreløpig bare diktering, ikke møteopptak.
+
+Nederst i Modeller-fanen kan du **sammenligne to nedlastede modeller**
+(eksperimentell). Velg siste diktat eller en lydfil, og Kandy transkriberer
+den med begge modellene etter hverandre. Resultatene vises side om side med
+tid og ord som skiller markert. Den aktive modellen byttes ikke før du
+trykker «Bruk». Se
+`docs/dev/nb-nemotron.md` for å konvertere NBs finjustering.
 
 <table>
   <tr>

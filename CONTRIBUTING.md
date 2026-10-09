@@ -1,7 +1,7 @@
 # Contributing to Kandy
 
-Kandy is an internal Kantega tool, forked from
-[Handy](https://github.com/cjpais/Handy) (MIT). No external contributions.
+Kandy is a fork of [Handy](https://github.com/cjpais/Handy) (MIT), kept as a
+side project at Kantega, not a primary tool. No external contributions.
 Upstream is the `upstream` remote if you need to pull fixes.
 
 ## Setup

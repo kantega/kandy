@@ -6,6 +6,7 @@ use crate::audio_toolkit::{
     },
     AudioRecorder, SileroVad, VadPolicy, VoiceActivityDetector, WHISPER_SAMPLE_RATE,
 };
+use crate::managers::transcription::StreamRouter;
 use crate::overlay;
 use crate::settings::{get_settings, write_settings, AppSettings, VadBackend};
 use log::{debug, error, info, warn};
@@ -104,6 +105,7 @@ fn create_audio_recorder(
     app_handle: &tauri::AppHandle,
     selected_channel: Option<u16>,
     backend: VadBackend,
+    stream_router: Arc<StreamRouter>,
 ) -> Result<AudioRecorder, anyhow::Error> {
     let detector: Box<dyn VoiceActivityDetector> = match backend {
         VadBackend::Silero => Box::new(
@@ -143,7 +145,8 @@ fn create_audio_recorder(
             move |levels| {
                 overlay::emit_levels(&app_handle, &levels);
             }
-        });
+        })
+        .with_frame_callback(move |frame| stream_router.feed(frame));
 
     Ok(recorder)
 }
@@ -195,12 +198,17 @@ pub struct AudioRecordingManager {
     /// so the retry re-enumerates. The system-default case is never cached —
     /// the recorder resolves the current default itself, cheaply.
     cached_device: Arc<Mutex<Option<(String, cpal::Device)>>>,
+    /// Live-transcription route; the recorder feeds every kept frame to it.
+    stream_router: Arc<StreamRouter>,
 }
 
 impl AudioRecordingManager {
     /* ---------- construction ------------------------------------------------ */
 
-    pub fn new(app: &tauri::AppHandle) -> Result<Self, anyhow::Error> {
+    pub fn new(
+        app: &tauri::AppHandle,
+        stream_router: Arc<StreamRouter>,
+    ) -> Result<Self, anyhow::Error> {
         Ok(Self {
             state: Arc::new(Mutex::new(RecordingState::Idle)),
             app_handle: app.clone(),
@@ -213,6 +221,7 @@ impl AudioRecordingManager {
             recording_active: Arc::new(AtomicBool::new(false)),
             capture_generation: Arc::new(AtomicU64::new(0)),
             cached_device: Arc::new(Mutex::new(None)),
+            stream_router,
         })
     }
 
@@ -370,6 +379,7 @@ impl AudioRecordingManager {
                 &self.app_handle,
                 settings.selected_channel,
                 settings.vad_backend,
+                Arc::clone(&self.stream_router),
             )?);
         }
         Ok(())
@@ -643,6 +653,7 @@ impl AudioRecordingManager {
             &self.app_handle,
             settings.selected_channel,
             backend,
+            Arc::clone(&self.stream_router),
         )?;
 
         let was_open = *self.is_open.lock().unwrap();

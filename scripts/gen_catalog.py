@@ -32,6 +32,15 @@ CATALOG_VERSION = 2
 # the per-file `sha256` below, so listing one only affects availability.
 MIRRORS = ["https://blob.handy.computer"]
 
+# Hand-maintained experimental entries: NB-Whisper from NbAiLab (legacy ggml
+# `.bin`) and the parakeet-family Nemotron models. Merged verbatim after the
+# generated set so a regeneration never drops them. Sizes, hashes and revisions
+# come from the HF API (`/api/models/<repo>?blobs=true`).
+MANUAL_CATALOG = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "src-tauri", "src", "catalog", "nb-whisper.json",
+)
+
 # ───────────────────────── scoring (one constant each) ──────────────────────
 SPEED_SCALE = 8.0    # speed = 100·(1 − e^(−rtf/8))     grows toward 100
 ACC_SCALE   = 15.0   # accuracy = 100·e^(−wer/15)        decays from 100
@@ -272,6 +281,9 @@ def main():
         raise SystemExit(1)
     models.sort(key=lambda m: (not m["recommended"], m["recommended_rank"] or 1e9,
                                m["family"], -(m["speed_score"] or 0), m["slug"]))
+    with open(MANUAL_CATALOG) as fh:
+        generated_ids = {m["id"] for m in models}
+        models += [m for m in json.load(fh)["models"] if m["id"] not in generated_ids]
     catalog = {
         "catalog_version": CATALOG_VERSION,
         "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),

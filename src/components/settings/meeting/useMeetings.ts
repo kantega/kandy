@@ -89,6 +89,14 @@ export interface UseMeetingsResult extends MeetingActions {
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
   uploadAudio: () => Promise<void>;
+  /**
+   * Per-session opt-out of the automatic summary. Reset to true whenever a
+   * recording or import starts, so the setting's default applies to every new
+   * meeting. Read at the moment transcription finishes, so flipping it while
+   * recording or transcribing takes effect before anything is sent.
+   */
+  summarizeThisMeeting: boolean;
+  setSummarizeThisMeeting: (value: boolean) => void;
 }
 
 /**
@@ -102,6 +110,18 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
   const [summarizingId, setSummarizingId] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [summarizeThisMeeting, setSummarizeThisMeetingState] = useState(true);
+  // Ref mirror so the async stop/ingest paths see the latest choice instead
+  // of the value captured when they were called.
+  const summarizeThisMeetingRef = useRef(true);
+  const setSummarizeThisMeeting = useCallback((value: boolean) => {
+    summarizeThisMeetingRef.current = value;
+    setSummarizeThisMeetingState(value);
+  }, []);
+  const shouldSummarize = useCallback(
+    () => autoSummarize && summarizeThisMeetingRef.current,
+    [autoSummarize],
+  );
 
   // Phase lives in a zustand store so the sidebar can render a "recording"
   // badge even while this component is unmounted.
@@ -171,9 +191,10 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
       });
       return;
     }
+    setSummarizeThisMeeting(true);
     setPhase("recording");
     setElapsed(0);
-  }, [setPhase, t]);
+  }, [setPhase, setSummarizeThisMeeting, t]);
 
   const stopRecording = useCallback(async () => {
     setPhase("transcribing");
@@ -186,13 +207,13 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
         return;
       }
       // The meeting itself arrives via the event listener.
-      if (autoSummarize) {
+      if (shouldSummarize()) {
         void summarize(r.data.id);
       }
     } finally {
       setPhase("idle");
     }
-  }, [autoSummarize, setPhase, summarize, t]);
+  }, [shouldSummarize, setPhase, summarize, t]);
 
   /**
    * Transcribe dropped/picked files one after another. Sequential on purpose:
@@ -217,6 +238,7 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
         toast.info(t("meeting.queued", { count: supported.length }));
       }
 
+      setSummarizeThisMeeting(true);
       setPhase("transcribing");
       try {
         for (const path of supported) {
@@ -239,7 +261,7 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
             );
             continue;
           }
-          if (autoSummarize) {
+          if (shouldSummarize()) {
             await summarize(r.data.id);
           }
         }
@@ -247,7 +269,7 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
         setPhase("idle");
       }
     },
-    [autoSummarize, setPhase, summarize, t],
+    [shouldSummarize, setPhase, setSummarizeThisMeeting, summarize, t],
   );
 
   const uploadAudio = useCallback(async () => {
@@ -390,6 +412,8 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
     startRecording,
     stopRecording,
     uploadAudio,
+    summarizeThisMeeting,
+    setSummarizeThisMeeting,
     summarize,
     deleteMeeting,
     renameMeeting,

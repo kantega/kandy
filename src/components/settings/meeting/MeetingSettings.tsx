@@ -27,6 +27,8 @@ export const MeetingSettings: React.FC = () => {
     startRecording,
     stopRecording,
     uploadAudio,
+    summarizeThisMeeting,
+    setSummarizeThisMeeting,
     summarize,
     deleteMeeting,
     renameMeeting,
@@ -70,6 +72,9 @@ export const MeetingSettings: React.FC = () => {
         elapsed={elapsed}
         isDragging={isDragging}
         hasKey={hasKey}
+        autoSummarize={autoSummarize}
+        summarizeThisMeeting={summarizeThisMeeting}
+        onToggleSummarizeThisMeeting={setSummarizeThisMeeting}
         onStart={() => void startRecording()}
         onStop={() => void stopRecording()}
         onUpload={() => void uploadAudio()}

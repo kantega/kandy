@@ -87,6 +87,7 @@
   },
   "modelSelector": {
     "custom": "Egendefinert",
+    "experimental": "Eksperimentell",
     "active": "Aktiv",
     "switching": "Bytter …",
     "verifyingGeneric": "Verifiserer …",
@@ -174,7 +175,21 @@
       "rescan": {
         "tooltip": "Se etter modeller lagt til utenfor Kandy (i modell-mappa eller Hugging Face-cache)"
       },
-      "noModelsMatch": "Ingen modeller matcher dette filteret."
+      "noModelsMatch": "Ingen modeller matcher dette filteret.",
+      "compare": {
+        "title": "Sammenlign modeller",
+        "latestDictation": "Siste diktat",
+        "pickFile": "Velg lydfil …",
+        "run": "Sammenlign",
+        "running": "Transkriberer …",
+        "sameModel": "Velg to forskjellige modeller.",
+        "failed": "Sammenligningen feilet",
+        "seconds": "{{value}} s",
+        "clip": "{{name}}, {{duration}} lyd",
+        "use": "Bruk {{name}}",
+        "differing_one": "1 ord skiller",
+        "differing_other": "{{count}} ord skiller"
+      }
     },
     "sound": {
       "title": "Lyd",
@@ -398,6 +413,11 @@
         "noTelemetryTitle": "Ingen telemetri",
         "noTelemetryBody": "Kandy sender ingen bruksstatistikk, feilrapporter eller identifikatorer til Kantega eller andre. Ingen konto, ingen innlogging, ingen sporing."
       },
+      "origin": {
+        "title": "Opphav",
+        "description": "Kandy er en fork av Handy av CJ Pais, tilpasset norsk og Kantega LLM-proxy. Dette er ikke et hovedverktøy for Kantega, men et forsøk på en gratis og lokal modelløsning for transkribering og møtereferat.",
+        "link": "github.com/cjpais/Handy"
+      },
       "version": {
         "title": "Versjon",
         "description": "Nåværende versjon av Kandy"
@@ -498,6 +518,7 @@
     "stop": "Stopp og transkribér",
     "transcribing": "Transkriberer …",
     "summarizing": "Genererer sammendrag …",
+    "summarizeThisMeeting": "Lag referat når transkripsjonen er ferdig",
     "noKey": "Ingen LLM-proxy-nøkkel. Møter transkriberes, men det lages ikke referat. Legg inn en nøkkel under Modeller.",
     "pastMeetings": "Tidligere møter",
     "empty": "Ingen møter ennå. Start et opptak over.",

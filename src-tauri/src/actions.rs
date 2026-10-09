@@ -190,6 +190,10 @@ impl ShortcutAction for TranscribeAction {
         match rm.try_start_recording(&binding_id, vad_policy) {
             Ok(readiness) => {
                 debug!("Recording request accepted; waiting for first microphone samples");
+                // Live text for streaming-capable models. A no-op round trip
+                // for Whisper: the worker hands the engine back and stop
+                // falls through to batch transcription.
+                tm.start_stream();
                 let generation = readiness.generation();
                 let app_clone = app.clone();
                 let rm_clone = Arc::clone(&rm);
@@ -286,6 +290,7 @@ impl ShortcutAction for TranscribeAction {
 
             let Some(samples) = rm.stop_recording(&binding_id, cancel_generation) else {
                 debug!("No samples retrieved from recording stop");
+                tm.cancel_stream();
                 hide_recording_overlay(&ah);
                 set_tray_state(&ah, TrayIconState::Idle);
                 return;
@@ -293,6 +298,7 @@ impl ShortcutAction for TranscribeAction {
 
             if rm.was_cancelled_since(cancel_generation) {
                 debug!("Transcription operation cancelled after recording stop");
+                tm.cancel_stream();
                 hide_recording_overlay(&ah);
                 set_tray_state(&ah, TrayIconState::Idle);
                 return;
@@ -300,6 +306,7 @@ impl ShortcutAction for TranscribeAction {
 
             if samples.is_empty() {
                 debug!("Recording produced no audio samples; skipping persistence");
+                tm.cancel_stream();
                 hide_recording_overlay(&ah);
                 set_tray_state(&ah, TrayIconState::Idle);
                 return;
@@ -316,7 +323,7 @@ impl ShortcutAction for TranscribeAction {
             });
 
             let transcription_time = Instant::now();
-            let transcription_result = tm.transcribe(samples);
+            let transcription_result = tm.finalize_stream_or_transcribe(samples);
 
             let wav_saved = match wav_handle.await {
                 Ok(Ok(())) => {

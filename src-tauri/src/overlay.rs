@@ -29,6 +29,63 @@ tauri_panel! {
 const OVERLAY_WIDTH: f64 = 256.0;
 const OVERLAY_HEIGHT: f64 = 46.0;
 
+// Window size while live text is shown: the pill plus a text card stacked on
+// its far side from the screen edge. Keep in sync with `--ov-live-*` in
+// RecordingOverlay.css.
+const LIVE_OVERLAY_WIDTH: f64 = 520.0;
+const LIVE_OVERLAY_HEIGHT: f64 = 150.0;
+
+/// True while the overlay window is at the live-text size. Reset to compact on
+/// every new recording.
+static LIVE_EXPANDED: AtomicBool = AtomicBool::new(false);
+
+fn overlay_size() -> (f64, f64) {
+    if LIVE_EXPANDED.load(Ordering::Relaxed) {
+        (LIVE_OVERLAY_WIDTH, LIVE_OVERLAY_HEIGHT)
+    } else {
+        (OVERLAY_WIDTH, OVERLAY_HEIGHT)
+    }
+}
+
+/// Resize the overlay window to the current size mode and re-anchor it, so
+/// the card stays flush with the same screen edge. Main thread only.
+fn apply_overlay_size_on_main(app_handle: &AppHandle) {
+    let (width, height) = overlay_size();
+    if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
+        let _ = overlay_window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
+        if let Some((x, y)) = calculate_overlay_position(app_handle, width, height) {
+            let _ = overlay_window
+                .set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
+        }
+    }
+}
+
+#[derive(Clone, serde::Serialize)]
+struct StreamTextPayload<'a> {
+    committed: &'a str,
+    tentative: &'a str,
+}
+
+/// Send live streaming text to the overlay, growing the window on the first
+/// update of a recording. `committed` is stable; `tentative` may still change.
+pub fn emit_stream_text(app_handle: &AppHandle, committed: &str, tentative: &str) {
+    if !OVERLAY_ENABLED.load(Ordering::Relaxed) {
+        return;
+    }
+    if !LIVE_EXPANDED.swap(true, Ordering::Relaxed) {
+        let handle = app_handle.clone();
+        let _ = app_handle.run_on_main_thread(move || apply_overlay_size_on_main(&handle));
+    }
+    let _ = app_handle.emit_to(
+        "recording_overlay",
+        "stream-text",
+        StreamTextPayload {
+            committed,
+            tentative,
+        },
+    );
+}
+
 static LAST_MIC_LEVEL_EMIT: AtomicU64 = AtomicU64::new(0);
 const EMIT_THROTTLE_MS: u64 = 33; // ~30 FPS
 
@@ -180,9 +237,13 @@ fn show_overlay_state_on_main(app_handle: &AppHandle, state: &str) {
     // `hide_recording_overlay`, so that hide must not fire on this window.
     HIDE_GENERATION.fetch_add(1, Ordering::SeqCst);
 
+    if state == "recording" && LIVE_EXPANDED.swap(false, Ordering::Relaxed) {
+        apply_overlay_size_on_main(app_handle);
+    }
+
     if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
-        if let Some((x, y)) = calculate_overlay_position(app_handle, OVERLAY_WIDTH, OVERLAY_HEIGHT)
-        {
+        let (width, height) = overlay_size();
+        if let Some((x, y)) = calculate_overlay_position(app_handle, width, height) {
             let _ = overlay_window
                 .set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
         }
@@ -234,8 +295,8 @@ pub fn update_overlay_position(app_handle: &AppHandle) {
 
 fn update_overlay_position_on_main(app_handle: &AppHandle) {
     if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
-        if let Some((x, y)) = calculate_overlay_position(app_handle, OVERLAY_WIDTH, OVERLAY_HEIGHT)
-        {
+        let (width, height) = overlay_size();
+        if let Some((x, y)) = calculate_overlay_position(app_handle, width, height) {
             let _ = overlay_window
                 .set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
         }

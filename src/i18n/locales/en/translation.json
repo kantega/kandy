@@ -87,6 +87,7 @@
   },
   "modelSelector": {
     "custom": "Custom",
+    "experimental": "Experimental",
     "active": "Active",
     "switching": "Switching...",
     "verifyingGeneric": "Verifying...",
@@ -174,7 +175,21 @@
       "rescan": {
         "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside Kandy"
       },
-      "noModelsMatch": "No models match this filter."
+      "noModelsMatch": "No models match this filter.",
+      "compare": {
+        "title": "Compare models",
+        "latestDictation": "Latest dictation",
+        "pickFile": "Choose audio file …",
+        "run": "Compare",
+        "running": "Transcribing …",
+        "sameModel": "Choose two different models.",
+        "failed": "Comparison failed",
+        "seconds": "{{value}} s",
+        "clip": "{{name}}, {{duration}} of audio",
+        "use": "Use {{name}}",
+        "differing_one": "1 word differs",
+        "differing_other": "{{count}} words differ"
+      }
     },
     "sound": {
       "title": "Sound",
@@ -398,6 +413,11 @@
         "noTelemetryTitle": "No telemetry",
         "noTelemetryBody": "Kandy sends no usage stats, crash reports, or identifiers to Kantega or anyone else. No account, no login, no tracking."
       },
+      "origin": {
+        "title": "Origin",
+        "description": "Kandy is a fork of Handy by CJ Pais, adapted for Norwegian and the Kantega LLM proxy. It is not a primary Kantega tool, but an experiment in a free, local-model option for transcription and meeting notes.",
+        "link": "github.com/cjpais/Handy"
+      },
       "version": {
         "title": "Version",
         "description": "Current version of Kandy"
@@ -498,6 +518,7 @@
     "stop": "Stop & transcribe",
     "transcribing": "Transcribing…",
     "summarizing": "Generating summary…",
+    "summarizeThisMeeting": "Generate a summary when transcription finishes",
     "noKey": "No LLM proxy key. Meetings are transcribed, but no summary is generated. Add a key under Models.",
     "pastMeetings": "Past meetings",
     "empty": "No meetings yet. Start a recording above.",
