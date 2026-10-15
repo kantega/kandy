@@ -2,184 +2,56 @@
 
 ![Kandy: møteopptak med transkripsjon og referat](docs/screenshots/mote.png)
 
-## Hva Kandy er
+Kandy gjør tale om til tekst på Macen din. Hold en hurtigtast, snakk, og
+teksten limes inn der markøren står. Kandy kan også ta opp møter og lage
+referat.
 
-Kandy er en fork av [Handy](https://github.com/cjpais/Handy) av CJ Pais,
-tilpasset norsk og Kantega LLM-proxy. Det er ikke et hovedverktøy for
-Kantega, men et forsøk på en gratis og lokal modelløsning for
-transkribering og møtereferat. Bruk på eget ansvar.
+Lyden transkriberes lokalt. Bare tekst til referat og etterbehandling går til
+Kantega LLM-proxy, og bare hvis du har lagt inn nøkkel. Kandy er en fork av
+[Handy](https://github.com/cjpais/Handy) og et forsøk, ikke et
+Kantega-verktøy. Bruk på eget ansvar.
 
-Alt du sier transkriberes **lokalt på din Mac**. Ingenting går til
-OpenAI, Microsoft eller Google. Det eneste som kan forlate maskinen er
-tekst til Kantega LLM-proxy, og bare hvis du legger inn nøkkel og bruker
-referat eller etterbehandling.
+## Installer
 
-## Ta i bruk Kandy (Mac)
+1. Last ned DMG-en fra
+   [GitHub](https://github.com/kantega/kandy/releases/latest). Velg
+   `aarch64` for M1 eller nyere, `x64` for Intel.
+2. Åpne DMG-en og dra Kandy til **Programmer**.
+3. Første gang stopper macOS appen. Den enkleste løsningen er å lime inn dette
+   i Terminal:
 
-Det finnes ingen ferdig installasjonsfil ennå, så appen bygges på din
-egen maskin. Det tar 10 til 20 minutter første gang og krever ingen
-programmeringskunnskap. Kopier én blokk om gangen inn i Terminal.
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Kandy.app
+   ```
 
-**1. Installer verktøyene** (hopp over det du allerede har).
+   Du kan også gå til **Systeminnstillinger → Personvern og sikkerhet** og
+   trykke **Åpne likevel**.
 
-```bash
-xcode-select --install
-```
+## Kom i gang
 
-```bash
-curl -fsSL https://bun.sh/install | bash
-```
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-Lukk Terminal og åpne den igjen etter dette.
-
-**2. Hent og bygg Kandy.**
-
-```bash
-git clone https://github.com/kantega/kandy.git
-```
-
-```bash
-cd kandy && bun install
-```
-
-```bash
-bun run tauri build
-```
-
-**Stopper bygget?** Den vanligste feilen er `cmake` policy error. Bygg
-med `CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri build`.
-
-`bun run tauri` legger `/usr/bin` først på `PATH`, så et Python-miljø
-kan ikke skygge systemets `xattr` og gi `failed to run xattr`.
-
-Flere feil og varige fikser står i [BUILD.md](BUILD.md#vanlige-feil).
-
-Bygget ligger i `src-tauri/target/release/bundle/dmg/`. Åpne `.dmg`-fila
-og dra Kandy til Programmer. Første gang: høyreklikk på Kandy i
-Programmer og velg **Åpne**, siden bygget ikke er signert av Apple.
-
-**3. Sett opp appen.**
-
-1. Gi mikrofon- og tilgjengelighetstillatelse når du blir spurt.
-2. Velg **Whisper Large v3** som modell (best på norsk, lastes ned én gang).
+1. Gi tilgang til mikrofon og tilgjengelighet når du blir spurt.
+2. Velg **Whisper Large v3** under **Modeller**. Den er best på norsk.
 3. Sett en hurtigtast under **Generelt**.
-4. Hold hurtigtasten, snakk, slipp. Teksten limes inn der markøren står.
-5. Vil du ha referat fra møter? Legg inn Kantega LLM-proxy-nøkkelen din
-   under **Modeller**, gå til **Møte**, trykk **Start opptak**, og få transkripsjon, norsk
-   referat og en foreslått tittel når du stopper.
+4. Hold hurtigtasten, snakk og slipp.
 
-**Oppdatere senere:** `cd kandy && git pull && bun run tauri build`, og
-dra den nye appen til Programmer.
-
----
-
-## Hva Kandy gjør
-
-- **Transkibering.** Hurtigtast, snakk, tekst limes inn i aktivt vindu.
-- **Etterbehandling.** Valgfritt: en språkmodell via Kantega LLM-proxy
-  rydder i tegnsetting, tall og fyllord. Skru på «Etterbehandle
-  automatisk» for alle transkiberinger, eller bruk egen hurtigtast for én.
-- **Møtereferat.** Ta opp eller dra inn en lydfil, få transkripsjon og
-  norsk referat. Referat kan lages automatisk eller på knappetrykk, og
-  promptet kan tilpasses per møte.
-- **Historikk.** Alt du har diktert, med lyd, søkbart og eksporterbart til
-  Word, PDF og Markdown.
-
-Kandy kjører Whisper lokalt på GPU via Metal.
-Whisper er valgt fordi det er den eneste lokale modellfamilien med god
-norsk.
-
-Modellisten har også **NB-Whisper** (Small, Medium, Large), Nasjonalbibliotekets
-norsktrente Whisper fra [NbAiLab](https://huggingface.co/NbAiLab). De er merket
-«Eksperimentell». De lastes ned direkte fra Hugging Face, har ingen speil, og
-språk må velges manuelt (bokmål, nynorsk eller engelsk). Nøyaktighetstallene i
-listen er ikke målt, de er kopiert fra tilsvarende Whisper-størrelse.
-
-Også eksperimentell: **Nemotron 3.5 ASR Streaming 0.6B** fra NVIDIA, som har
-norsk bokmål og er basismodellen for Nasjonalbibliotekets nyeste
-`nb-asr-nemotron35`-modeller. Med Nemotron valgt viser diktering teksten
-live i opptakspillen mens du snakker, og den ferdige teksten limes inn med
-en gang du stopper. Velg norsk under Generelt, så brukes modellens `nb-NO`.
-Live tekst gjelder foreløpig bare diktering, ikke møteopptak.
-
-Nederst i Modeller-fanen kan du **sammenligne to nedlastede modeller**
-(eksperimentell). Velg siste diktat eller en lydfil, og Kandy transkriberer
-den med begge modellene etter hverandre. Resultatene vises side om side med
-tid og ord som skiller markert. Den aktive modellen byttes ikke før du
-trykker «Bruk». Se
-`docs/dev/nb-nemotron.md` for å konvertere NBs finjustering.
-
-<table>
-  <tr>
-    <td width="50%"><img src="docs/screenshots/historikk.png" alt="Historikk: alt du har diktert, med lyd"></td>
-    <td width="50%"><img src="docs/screenshots/generelt.png" alt="Generelt: hurtigtast, språk og mikrofon"></td>
-  </tr>
-  <tr>
-    <td><b>Historikk.</b> Alt du har diktert, med lyd, søkbart og eksporterbart.</td>
-    <td><b>Generelt.</b> Hurtigtast, språk og mikrofon.</td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/modeller.png" alt="Modeller: Whisper-modeller lastet ned lokalt"></td>
-    <td><img src="docs/screenshots/modeller-llm-proxy.png" alt="Nøkkel og modell for Kantega LLM-proxy"></td>
-  </tr>
-  <tr>
-    <td><b>Modeller.</b> Whisper-modellene ligger lokalt på maskinen.</td>
-    <td><b>Kantega LLM-proxy.</b> Nøkkel og modell for referat og etterbehandling.</td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/etterbehandling.png" alt="Etterbehandling: prompt og egen hurtigtast"></td>
-    <td><img src="docs/screenshots/avansert-ord.png" alt="Avansert: egendefinerte ord og fyllord"></td>
-  </tr>
-  <tr>
-    <td><b>Etterbehandling.</b> Eget prompt og egen hurtigtast.</td>
-    <td><b>Egendefinerte ord.</b> Lær Whisper navn og fagord.</td>
-  </tr>
-</table>
-
-## Personvern
-
-| Data                           | Hvor                         |
-| ------------------------------ | ---------------------------- |
-| Lydopptak                      | Lokalt                       |
-| Transkripsjon og historikk     | Lokalt                       |
-| Modeller                       | Lokalt                       |
-| Tekst til referat/etterbehand. | Kantega LLM-proxy over HTTPS |
-
-Kantega drifter proxyen selv og bruker kun modeller hostet i Europa.
-
-Alt lagres under `~/Library/Application Support/no.kantega.kandy/`.
-
-Slett mappa for å nullstille appen.
+For møtereferat legger du inn nøkkelen til Kantega LLM-proxy under
+**Modeller**. Gå så til **Møte** og trykk **Start opptak**.
 
 ## Kjente begrensninger
 
-- **Kandy tar opp det mikrofonen hører.** I et Teams- eller Zoom-møte
-  fanger den de andre deltakerne bare når lyden deres spilles over
-  høyttaler, slik at mikrofonen plukker den opp. Med hodetelefoner tas
-  bare din egen stemme opp. Bruk høyttaler, eller rut møtelyden til en
-  virtuell mikrofon (BlackHole).
-- **`fn`/Globe-tasten fungerer bare på Apple-tastaturer.** Bruk vanlige
-  modifikatorer om du bytter tastatur.
-- **Ingen Mac App Store.** Kandy bruker globale hurtigtaster som App
-  Store-sandkassen ikke tillater. Distribueres som `.dmg`.
-- **Kun macOS.** Ingen Windows- eller Linux-støtte.
+- Kandy tar bare opp det mikrofonen hører. Med hodetelefoner i Teams eller
+  Zoom kommer bare din egen stemme med.
+- `fn`-tasten fungerer bare på Apple-tastaturer.
+- Kun macOS.
+- **Ny versjon:** last ned DMG-en på nytt og erstatt appen i **Programmer**.
+
+Alt lagres i `~/Library/Application Support/no.kantega.kandy/`. Slett mappen
+for å nullstille appen.
 
 ## For utviklere
 
-- [BUILD.md](BUILD.md). Bygg fra kilde, CLI-flagg, vanlige feil.
-- [CONTRIBUTING.md](CONTRIBUTING.md). Kodestil, oversettelser, PR-flyt.
-- [AGENTS.md](AGENTS.md). Arkitektur for mennesker og KI-assistenter.
+[BUILD.md](BUILD.md), [CONTRIBUTING.md](CONTRIBUTING.md) og
+[AGENTS.md](AGENTS.md).
 
-## Kreditt og lisens
-
-Kandy er en fork av [Handy](https://github.com/cjpais/Handy) av CJ Pais.
-Bygger på [Whisper](https://github.com/openai/whisper) via
-[transcribe.cpp](https://github.com/ggerganov/whisper.cpp),
-[Silero VAD](https://github.com/snakers4/silero-vad) og
-[Tauri](https://tauri.app).
-
-MIT. Se [LICENSE](LICENSE).
+MIT-lisens. Bygger på [Handy](https://github.com/cjpais/Handy) av CJ Pais,
+[Whisper](https://github.com/openai/whisper) og [Tauri](https://tauri.app).
