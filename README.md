@@ -21,7 +21,7 @@ Kantega-verktøy. Bruk på eget ansvar.
    i Terminal:
 
    ```bash
-   xattr -dr com.apple.quarantine /Applications/Kandy.app
+   /usr/bin/xattr -dr com.apple.quarantine /Applications/Kandy.app
    ```
 
    Du kan også gå til **Systeminnstillinger → Personvern og sikkerhet** og
@@ -44,6 +44,13 @@ For møtereferat legger du inn nøkkelen til Kantega LLM-proxy under
 - `fn`-tasten fungerer bare på Apple-tastaturer.
 - Kun macOS.
 - **Ny versjon:** last ned DMG-en på nytt og erstatt appen i **Programmer**.
+  Kjør `xattr`-kommandoen over igjen. macOS ser hver versjon som en ny app, så
+  tilgangen til tilgjengelighet slutter å virke selv om bryteren står på. Kjør
+  dette og gi tilgang på nytt:
+
+  ```bash
+  tccutil reset Accessibility no.kantega.kandy
+  ```
 
 Alt lagres i `~/Library/Application Support/no.kantega.kandy/`. Slett mappen
 for å nullstille appen.
