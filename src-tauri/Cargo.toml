@@ -1,6 +1,6 @@
 [package]
 name = "kandy"
-version = "0.12.0"
+version = "0.13.0"
 description = "Kandy"
 authors = ["cjpais"]
 edition = "2021"
