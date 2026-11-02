@@ -7,9 +7,10 @@
 
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Local, Utc};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use rusqlite::{params, Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fs;
@@ -17,8 +18,11 @@ use std::path::PathBuf;
 use tauri::AppHandle;
 use tauri_specta::Event;
 
-static MIGRATIONS: &[M] = &[M::up(
-    "CREATE TABLE IF NOT EXISTS meetings (
+use crate::managers::transcription::TimedSegment;
+
+static MIGRATIONS: &[M] = &[
+    M::up(
+        "CREATE TABLE IF NOT EXISTS meetings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
@@ -29,7 +33,41 @@ static MIGRATIONS: &[M] = &[M::up(
         model TEXT,
         duration_secs INTEGER NOT NULL DEFAULT 0
     );",
-)];
+    ),
+    // Segment timings from the speech model (JSON array of `TimedSegment`) and
+    // the chapters made from them (JSON array of `Chapter`). NULL segments
+    // means the timings were never stored, so chapters need a new transcription.
+    M::up(
+        "ALTER TABLE meetings ADD COLUMN segments TEXT;
+         ALTER TABLE meetings ADD COLUMN chapters TEXT;",
+    ),
+    // The improved transcript as timestamped paragraphs (JSON array of
+    // `TranscriptParagraph`). While set, `transcript` holds the same text
+    // joined, so search, copy and export keep working on plain text.
+    M::up("ALTER TABLE meetings ADD COLUMN paragraphs TEXT;"),
+];
+
+/// Every column `map_row` reads, in one place for the SELECTs below.
+const MEETING_COLUMNS: &str = "id, title, timestamp, audio_file, transcript, summary, \
+     summary_prompt, model, duration_secs, chapters, paragraphs";
+
+/// One topic section of a meeting: where it starts in the recording, a short
+/// title and a few sentences on what was said. It runs until the next
+/// chapter starts, or to the end of the meeting.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
+pub struct Chapter {
+    pub start_ms: i64,
+    pub title: String,
+    pub summary: String,
+}
+
+/// One paragraph of the improved transcript and where it starts in the
+/// recording.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
+pub struct TranscriptParagraph {
+    pub start_ms: i64,
+    pub text: String,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct Meeting {
@@ -42,6 +80,11 @@ pub struct Meeting {
     pub summary_prompt: Option<String>,
     pub model: Option<String>,
     pub duration_secs: i64,
+    /// Empty until chapters have been generated.
+    pub chapters: Vec<Chapter>,
+    /// The improved transcript. Empty until it has been generated; the plain
+    /// `transcript` is then all there is.
+    pub paragraphs: Vec<TranscriptParagraph>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Type, tauri_specta::Event)]
@@ -129,6 +172,20 @@ impl MeetingManager {
             summary_prompt: row.get("summary_prompt")?,
             model: row.get("model")?,
             duration_secs: row.get("duration_secs")?,
+            chapters: Self::parse_list(row.get("chapters")?, "chapters"),
+            paragraphs: Self::parse_list(row.get("paragraphs")?, "paragraphs"),
+        })
+    }
+
+    /// A JSON list column. A value that no longer parses is logged and read as
+    /// empty, so one bad row cannot hide the meeting.
+    fn parse_list<T: DeserializeOwned>(raw: Option<String>, what: &str) -> Vec<T> {
+        let Some(raw) = raw else {
+            return Vec::new();
+        };
+        serde_json::from_str(&raw).unwrap_or_else(|e| {
+            warn!("Ignoring unreadable meeting {}: {}", what, e);
+            Vec::new()
         })
     }
 
@@ -137,16 +194,25 @@ impl MeetingManager {
         &self,
         audio_file: String,
         transcript: String,
+        segments: &[TimedSegment],
         duration_secs: i64,
     ) -> Result<Meeting> {
         let timestamp = Utc::now().timestamp();
         let title = Self::format_title(timestamp);
+        let segments_json = serde_json::to_string(segments)?;
 
         let conn = self.get_connection()?;
         conn.execute(
-            "INSERT INTO meetings (title, timestamp, audio_file, transcript, duration_secs)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![&title, timestamp, &audio_file, &transcript, duration_secs],
+            "INSERT INTO meetings (title, timestamp, audio_file, transcript, duration_secs, segments)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                &title,
+                timestamp,
+                &audio_file,
+                &transcript,
+                duration_secs,
+                segments_json
+            ],
         )?;
 
         let meeting = Meeting {
@@ -159,6 +225,8 @@ impl MeetingManager {
             summary_prompt: None,
             model: None,
             duration_secs,
+            chapters: Vec::new(),
+            paragraphs: Vec::new(),
         };
 
         self.emit(MeetingUpdatePayload::Added {
@@ -227,6 +295,123 @@ impl MeetingManager {
         Ok(meeting)
     }
 
+    /// The stored segment timings, or `None` when none were stored.
+    pub fn get_segments(&self, id: i64) -> Result<Option<Vec<TimedSegment>>> {
+        let conn = self.get_connection()?;
+        let raw: Option<String> = conn
+            .query_row(
+                "SELECT segments FROM meetings WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| anyhow!("Meeting {} not found", id))?;
+        raw.map(|json| serde_json::from_str(&json).map_err(anyhow::Error::from))
+            .transpose()
+    }
+
+    /// Store segment timings recovered by transcribing an older meeting again.
+    /// The transcript is left alone, since the user may have corrected it.
+    pub fn set_segments(&self, id: i64, segments: &[TimedSegment]) -> Result<()> {
+        let conn = self.get_connection()?;
+        let updated = conn.execute(
+            "UPDATE meetings SET segments = ?1 WHERE id = ?2",
+            params![serde_json::to_string(segments)?, id],
+        )?;
+        if updated == 0 {
+            return Err(anyhow!("Meeting {} not found", id));
+        }
+        Ok(())
+    }
+
+    /// Store (or replace) a meeting's chapters.
+    pub fn set_chapters(&self, id: i64, chapters: &[Chapter]) -> Result<Meeting> {
+        let conn = self.get_connection()?;
+        let updated = conn.execute(
+            "UPDATE meetings SET chapters = ?1 WHERE id = ?2",
+            params![serde_json::to_string(chapters)?, id],
+        )?;
+        if updated == 0 {
+            return Err(anyhow!("Meeting {} not found", id));
+        }
+        let meeting = self.require(id)?;
+        self.emit(MeetingUpdatePayload::Updated {
+            meeting: meeting.clone(),
+        });
+        Ok(meeting)
+    }
+
+    /// Delete the recording and keep the transcript, summary and chapters. The
+    /// row is cleared before the file goes, so it never points at a missing
+    /// file. A meeting without a recording is returned unchanged.
+    pub fn delete_audio(&self, id: i64) -> Result<Meeting> {
+        let meeting = self.require(id)?;
+        if meeting.audio_file.is_empty() {
+            return Ok(meeting);
+        }
+
+        let conn = self.get_connection()?;
+        conn.execute(
+            "UPDATE meetings SET audio_file = '' WHERE id = ?1",
+            params![id],
+        )?;
+
+        let path = self.audio_file_path(&meeting.audio_file);
+        if path.exists() {
+            if let Err(e) = fs::remove_file(&path) {
+                error!(
+                    "Failed to delete meeting audio {}: {}",
+                    meeting.audio_file, e
+                );
+            }
+        }
+
+        let meeting = self.require(id)?;
+        self.emit(MeetingUpdatePayload::Updated {
+            meeting: meeting.clone(),
+        });
+        Ok(meeting)
+    }
+
+    /// Store the improved transcript, and its joined text as `transcript`.
+    pub fn set_paragraphs(&self, id: i64, paragraphs: &[TranscriptParagraph]) -> Result<Meeting> {
+        let conn = self.get_connection()?;
+        let updated = conn.execute(
+            "UPDATE meetings SET paragraphs = ?1, transcript = ?2 WHERE id = ?3",
+            params![
+                serde_json::to_string(paragraphs)?,
+                Self::join_paragraphs(paragraphs),
+                id
+            ],
+        )?;
+        if updated == 0 {
+            return Err(anyhow!("Meeting {} not found", id));
+        }
+        let meeting = self.require(id)?;
+        self.emit(MeetingUpdatePayload::Updated {
+            meeting: meeting.clone(),
+        });
+        Ok(meeting)
+    }
+
+    /// Replace the text of one paragraph of the improved transcript.
+    pub fn set_paragraph_text(&self, id: i64, index: usize, text: String) -> Result<Meeting> {
+        let mut paragraphs = self.require(id)?.paragraphs;
+        let paragraph = paragraphs
+            .get_mut(index)
+            .ok_or_else(|| anyhow!("Meeting {} has no paragraph {}", id, index))?;
+        paragraph.text = text;
+        self.set_paragraphs(id, &paragraphs)
+    }
+
+    fn join_paragraphs(paragraphs: &[TranscriptParagraph]) -> String {
+        paragraphs
+            .iter()
+            .map(|paragraph| paragraph.text.trim())
+            .collect::<Vec<_>>()
+            .join("\n\n")
+    }
+
     /// Rename a meeting.
     pub fn rename(&self, id: i64, title: String) -> Result<Meeting> {
         let conn = self.get_connection()?;
@@ -246,11 +431,8 @@ impl MeetingManager {
 
     pub fn get_meetings(&self) -> Result<Vec<Meeting>> {
         let conn = self.get_connection()?;
-        let mut stmt = conn.prepare(
-            "SELECT id, title, timestamp, audio_file, transcript, summary,
-                    summary_prompt, model, duration_secs
-             FROM meetings ORDER BY timestamp DESC",
-        )?;
+        let sql = format!("SELECT {MEETING_COLUMNS} FROM meetings ORDER BY timestamp DESC");
+        let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map([], Self::map_row)?;
         let mut out = Vec::new();
         for r in rows {
@@ -261,14 +443,9 @@ impl MeetingManager {
 
     pub fn get_by_id(&self, id: i64) -> Result<Option<Meeting>> {
         let conn = self.get_connection()?;
+        let sql = format!("SELECT {MEETING_COLUMNS} FROM meetings WHERE id = ?1");
         let meeting = conn
-            .query_row(
-                "SELECT id, title, timestamp, audio_file, transcript, summary,
-                        summary_prompt, model, duration_secs
-                 FROM meetings WHERE id = ?1",
-                params![id],
-                Self::map_row,
-            )
+            .query_row(&sql, params![id], Self::map_row)
             .optional()?;
         Ok(meeting)
     }

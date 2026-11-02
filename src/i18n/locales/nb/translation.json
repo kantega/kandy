@@ -372,7 +372,19 @@
       "editedBadge": "Redigert",
       "exportDocTitle": "Transkripsjon",
       "transcript": "Transkripsjon",
-      "expandTranscript": "Vis hele transkripsjonen"
+      "expandTranscript": "Vis hele transkripsjonen",
+      "deleteAudio": "Slett lydklipp, behold tekst",
+      "deleteAudioError": "Kunne ikke slette lydklippet. Prøv igjen.",
+      "audioDeleted": "Lydklippet er slettet",
+      "deletedAudioCount_one": "Slettet {{count}} lydklipp",
+      "deletedAudioCount_other": "Slettet {{count}} lydklipp",
+      "deleteAudioTitle": "Slette lydklipp?",
+      "deleteAudioDescription_one": "Dette fjerner lydklippet til {{count}} oppføring. Transkripsjonen blir stående.",
+      "deleteAudioDescription_other": "Dette fjerner lydklippene til {{count}} oppføringer. Transkripsjonene blir stående.",
+      "confirmDeleteAudio_one": "Slett {{count}} lydklipp",
+      "confirmDeleteAudio_other": "Slett {{count}} lydklipp",
+      "deleteSelectedAudio_one": "Slett {{count}} lydklipp",
+      "deleteSelectedAudio_other": "Slett {{count}} lydklipp"
     },
     "debug": {
       "logDirectory": {
@@ -555,7 +567,10 @@
       "unsupportedFile_one": "1 fil ble hoppet over",
       "unsupportedFile_other": "{{count}} filer ble hoppet over",
       "unsupportedFileHint": "Kandy leser disse formatene: {{formats}}.",
-      "audioSaveFailed": "Klarte ikke å lagre opptaket"
+      "audioSaveFailed": "Klarte ikke å lagre opptaket",
+      "chaptersFailed": "Kunne ikke lage kapitler",
+      "deleteAudioFailed": "Kunne ikke slette lydopptaket",
+      "improveFailed": "Kunne ikke forbedre transkripsjonen"
     },
     "audioFiles": "Lydfiler",
     "dropActive": "Slipp for å transkribere",
@@ -582,6 +597,30 @@
       "description": "Opptaket, transkripsjonen og referatet fjernes permanent.",
       "confirm": "Slett",
       "cancel": "Avbryt"
+    },
+    "chapters": {
+      "generate": "Lag kapitler",
+      "regenerate": "Lag kapitler på nytt",
+      "expandAll": "Åpne alle kapitler",
+      "collapseAll": "Lukk alle kapitler",
+      "empty": "Ingen tekst i dette kapittelet."
+    },
+    "deleteAudio": "Slett lydopptak, behold tekst",
+    "audioDeleted": "Lydopptaket er slettet",
+    "deleteAudioTitle": "Slette lydopptaket?",
+    "deleteAudioDescription": "Lydfilen fjernes. Transkripsjon, referat og kapitler blir stående.",
+    "confirmDeleteAudio": "Slett lydopptak",
+    "playFrom": "Spill av fra {{time}}",
+    "editParagraph": "Rediger avsnitt",
+    "improve": {
+      "run": "Forbedre transkripsjonen"
+    },
+    "chapterCount_one": "{{count}} kapittel",
+    "chapterCount_other": "{{count}} kapitler",
+    "audioActions": "Valg for lydopptaket",
+    "moreActions": "Flere valg",
+    "status": {
+      "chapters": "Kapitler"
     }
   },
   "export": {
@@ -601,11 +640,14 @@
       "saveFailed": "Kunne ikke lagre endringene",
       "editSummary": "Rediger sammendrag",
       "editTranscript": "Rediger transkripsjon",
-      "editTitle": "Rediger tittel"
+      "editTitle": "Rediger tittel",
+      "doubleClickHint": "Dobbeltklikk for å redigere"
     }
   },
   "audioPlayer": {
     "play": "Spill av",
-    "pause": "Pause"
+    "pause": "Pause",
+    "speed": "Avspillingshastighet",
+    "speedLabel": "Avspillingshastighet {{rate}}, klikk for å endre"
   }
 }

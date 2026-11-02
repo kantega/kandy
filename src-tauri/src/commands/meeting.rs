@@ -2,19 +2,23 @@
 //!
 //! Recording drives `AudioRecordingManager` directly (binding id "meeting",
 //! VAD disabled so the full meeting is captured, not just detected speech).
-//! Transcription reuses the existing batch `TranscriptionManager::transcribe`.
+//! Transcription reuses the batch `TranscriptionManager::transcribe_detailed`.
 //! Summaries go through the Kantega LLM proxy; if no key is configured the
 //! transcript is still saved and returned (the mandatory no-key fallback).
 //! Whether a summary is requested automatically after transcription is the
-//! frontend's call (`meeting_auto_summarize`).
+//! frontend's call (`meeting_auto_summarize`), and so is asking for chapters
+//! once a summary is done.
 
 use crate::audio_toolkit::{decode_to_mono_16k, save_wav_file, VadPolicy, WHISPER_SAMPLE_RATE};
 use crate::kantega_llm;
 use crate::managers::audio::AudioRecordingManager;
-use crate::managers::meeting::{Meeting, MeetingManager};
-use crate::managers::transcription::TranscriptionManager;
+use crate::managers::meeting::{Meeting, MeetingManager, TranscriptParagraph};
+use crate::managers::transcription::{DetailedTranscript, TimedSegment, TranscriptionManager};
+use crate::meeting_chapters;
 use crate::settings::get_settings;
 use chrono::Utc;
+use futures_util::StreamExt;
+use log::warn;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
 
@@ -65,15 +69,29 @@ pub async fn stop_meeting_recording(
     let audio_path = meeting_manager.audio_file_path(&file_name);
     save_wav_file(&audio_path, &samples).map_err(|e| format!("Failed to save audio: {}", e))?;
 
-    transcription_manager.initiate_model_load();
-    let tm = Arc::clone(&transcription_manager);
-    let transcript = tauri::async_runtime::spawn_blocking(move || tm.transcribe(samples))
-        .await
-        .map_err(|e| format!("Transcription task panicked: {}", e))?
-        .map_err(|e| e.to_string())?;
+    let transcript = transcribe_meeting_audio(&transcription_manager, samples).await?;
 
     meeting_manager
-        .save_meeting(file_name, transcript, duration_secs)
+        .save_meeting(
+            file_name,
+            transcript.text,
+            &transcript.segments,
+            duration_secs,
+        )
+        .map_err(|e| e.to_string())
+}
+
+/// Run the meeting audio through the speech model off the async runtime,
+/// keeping the segment timings for chapters.
+async fn transcribe_meeting_audio(
+    transcription_manager: &Arc<TranscriptionManager>,
+    samples: Vec<f32>,
+) -> Result<DetailedTranscript, String> {
+    transcription_manager.initiate_model_load();
+    let tm = Arc::clone(transcription_manager);
+    tauri::async_runtime::spawn_blocking(move || tm.transcribe_detailed(samples))
+        .await
+        .map_err(|e| format!("Transcription task panicked: {}", e))?
         .map_err(|e| e.to_string())
 }
 
@@ -116,15 +134,15 @@ pub async fn upload_meeting_audio(
     let audio_path = meeting_manager.audio_file_path(&file_name);
     save_wav_file(&audio_path, &samples).map_err(|e| format!("Failed to save audio: {}", e))?;
 
-    transcription_manager.initiate_model_load();
-    let tm = Arc::clone(&transcription_manager);
-    let transcript = tauri::async_runtime::spawn_blocking(move || tm.transcribe(samples))
-        .await
-        .map_err(|e| format!("Transcription task panicked: {}", e))?
-        .map_err(|e| e.to_string())?;
+    let transcript = transcribe_meeting_audio(&transcription_manager, samples).await?;
 
     meeting_manager
-        .save_meeting(file_name, transcript, duration_secs)
+        .save_meeting(
+            file_name,
+            transcript.text,
+            &transcript.segments,
+            duration_secs,
+        )
         .map_err(|e| e.to_string())
 }
 
@@ -173,6 +191,182 @@ pub async fn summarize_meeting(
     }
 
     Ok(updated)
+}
+
+/// The meeting's segment timings. A meeting saved before they were kept is
+/// transcribed once more from its recording, and the timings are stored; its
+/// transcript text is left as it is.
+async fn meeting_segments(
+    meeting: &Meeting,
+    transcription_manager: &Arc<TranscriptionManager>,
+    meeting_manager: &MeetingManager,
+) -> Result<Vec<TimedSegment>, String> {
+    let segments = match meeting_manager
+        .get_segments(meeting.id)
+        .map_err(|e| e.to_string())?
+    {
+        Some(segments) => segments,
+        None => {
+            if meeting.audio_file.is_empty() {
+                return Err("The meeting has no recording to take times from".to_string());
+            }
+            let path = meeting_manager.audio_file_path(&meeting.audio_file);
+            let samples = tauri::async_runtime::spawn_blocking(move || decode_to_mono_16k(&path))
+                .await
+                .map_err(|e| format!("Decode task panicked: {}", e))?
+                .map_err(|e| format!("{} {}", DECODE_ERROR_PREFIX, e))?;
+            let transcript = transcribe_meeting_audio(transcription_manager, samples).await?;
+            meeting_manager
+                .set_segments(meeting.id, &transcript.segments)
+                .map_err(|e| e.to_string())?;
+            transcript.segments
+        }
+    };
+
+    if segments.is_empty() {
+        return Err("The speech model gave no timestamps for this meeting".to_string());
+    }
+    Ok(segments)
+}
+
+/// Improvement requests sent to the LLM proxy at the same time.
+const IMPROVE_CONCURRENCY: usize = 4;
+
+/// Correct the transcript with the LLM and store it as timestamped paragraphs.
+///
+/// The transcript is sent in excerpts of about five minutes, with the summary
+/// as reference for names and terms. An excerpt whose answer is unusable keeps
+/// its original text, so a single bad answer never loses part of the meeting.
+/// Fails only when no excerpt could be improved.
+#[tauri::command]
+#[specta::specta]
+pub async fn improve_meeting_transcript(
+    app: AppHandle,
+    transcription_manager: State<'_, Arc<TranscriptionManager>>,
+    meeting_manager: State<'_, Arc<MeetingManager>>,
+    id: i64,
+) -> Result<Meeting, String> {
+    let meeting = meeting_manager
+        .get_by_id(id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Meeting {} not found", id))?;
+    let segments = meeting_segments(&meeting, &transcription_manager, &meeting_manager).await?;
+
+    let settings = get_settings(&app);
+    let api_key = settings.llm_api_key();
+    let model = settings.llm_model.clone();
+    let summary = meeting.summary.as_deref();
+    let chunks = meeting_chapters::transcript_chunks(&segments);
+
+    // Each request owns its input. Futures that borrow from this function
+    // trip the `Send` check on the command future (rust-lang/rust#64552).
+    let inputs: Vec<String> = chunks
+        .iter()
+        .map(|chunk| meeting_chapters::improve_input(summary, &chunk.excerpt))
+        .collect();
+    let answers: Vec<Result<String, String>> =
+        futures_util::stream::iter(inputs.into_iter().map(|input| {
+            let (api_key, model) = (api_key.clone(), model.clone());
+            async move {
+                kantega_llm::complete(&api_key, &model, meeting_chapters::IMPROVE_PROMPT, &input)
+                    .await
+            }
+        }))
+        .buffered(IMPROVE_CONCURRENCY)
+        .collect()
+        .await;
+
+    let mut paragraphs: Vec<TranscriptParagraph> = Vec::new();
+    let mut first_error: Option<String> = None;
+    let mut improved = 0;
+    for (chunk, answer) in chunks.iter().zip(answers) {
+        let answer = answer.and_then(|answer| meeting_chapters::parse_paragraphs(&answer, chunk));
+        match answer {
+            Ok(improved_paragraphs) => {
+                improved += 1;
+                paragraphs.extend(improved_paragraphs);
+            }
+            Err(e) => {
+                warn!("Keeping an excerpt of meeting {} as it was: {}", id, e);
+                first_error.get_or_insert(e);
+                paragraphs.extend(chunk.original.iter().cloned());
+            }
+        }
+    }
+    if improved == 0 {
+        return Err(first_error.unwrap_or_else(|| "The transcript is empty".to_string()));
+    }
+
+    meeting_manager
+        .set_paragraphs(id, &paragraphs)
+        .map_err(|e| e.to_string())
+}
+
+/// Persist a hand-edited paragraph of the improved transcript.
+#[tauri::command]
+#[specta::specta]
+pub fn update_meeting_paragraph(
+    meeting_manager: State<'_, Arc<MeetingManager>>,
+    id: i64,
+    index: usize,
+    text: String,
+) -> Result<Meeting, String> {
+    meeting_manager
+        .set_paragraph_text(id, index, text)
+        .map_err(|e| e.to_string())
+}
+
+/// Split a meeting into chapters with start times, titles and short summaries,
+/// via the Kantega LLM proxy, and store them on the meeting.
+///
+/// The times come from the speech model's segment timings. A meeting saved
+/// before those were kept is transcribed once more from its recording to get
+/// them; its transcript text is left as it is.
+#[tauri::command]
+#[specta::specta]
+pub async fn generate_meeting_chapters(
+    app: AppHandle,
+    transcription_manager: State<'_, Arc<TranscriptionManager>>,
+    meeting_manager: State<'_, Arc<MeetingManager>>,
+    id: i64,
+) -> Result<Meeting, String> {
+    let meeting = meeting_manager
+        .get_by_id(id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Meeting {} not found", id))?;
+
+    let segments = meeting_segments(&meeting, &transcription_manager, &meeting_manager).await?;
+
+    let settings = get_settings(&app);
+    let answer = kantega_llm::complete(
+        &settings.llm_api_key(),
+        &settings.llm_model,
+        meeting_chapters::CHAPTER_PROMPT,
+        &meeting_chapters::timed_transcript(&segments),
+    )
+    .await?;
+
+    let duration_ms = segments
+        .iter()
+        .map(|segment| segment.end_ms)
+        .max()
+        .unwrap_or(0)
+        .max(meeting.duration_secs * 1000);
+    let chapters = meeting_chapters::parse_chapters(&answer, duration_ms)?;
+
+    meeting_manager
+        .set_chapters(id, &chapters)
+        .map_err(|e| e.to_string())
+}
+
+/// Delete a meeting's recording and keep its transcript, summary and chapters.
+#[tauri::command]
+#[specta::specta]
+pub fn delete_meeting_audio(
+    meeting_manager: State<'_, Arc<MeetingManager>>,
+    id: i64,
+) -> Result<Meeting, String> {
+    meeting_manager.delete_audio(id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

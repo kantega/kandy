@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  FileAudio,
   FolderOpen,
   RotateCcw,
   Star,
@@ -28,6 +29,7 @@ import { formatDateTime } from "@/utils/dateFormat";
 import { AudioPlayer, AudioPlayerGroup } from "../../ui/AudioPlayer";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
+import { CollapsibleText } from "../../ui/CollapsibleText";
 import { EditableText } from "../../ui/EditableText";
 import { ExportMenu } from "../../ui/ExportMenu";
 import { IconButton } from "../../ui/IconButton";
@@ -41,20 +43,12 @@ const PAGE_SIZE = 30;
  */
 const COLLAPSE_THRESHOLD = 180;
 
-/** Characters of the first line kept for the collapsed preview. */
-const PREVIEW_LENGTH = 100;
-
 /** True when a transcript is long enough that collapsing it earns its keep. */
 const isCollapsible = (text: string): boolean =>
   text.trim().length > COLLAPSE_THRESHOLD || text.trim().includes("\n");
 
-/** First line of a transcript, clipped, for the collapsed row. */
-const previewOf = (text: string): string => {
-  const firstLine = text.trim().split("\n", 1)[0] ?? "";
-  return firstLine.length > PREVIEW_LENGTH
-    ? `${firstLine.slice(0, PREVIEW_LENGTH).trimEnd()}…`
-    : firstLine;
-};
+/** An entry keeps its row after its recording is deleted, with no file name. */
+const hasAudio = (entry: HistoryEntry): boolean => entry.file_name !== "";
 
 interface OpenRecordingsButtonProps {
   onClick: () => void;
@@ -91,6 +85,10 @@ export const HistorySettings: React.FC = () => {
   );
   const [includeSaved, setIncludeSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  /** Entries whose recordings the open confirmation is about. */
+  const [pendingAudioDelete, setPendingAudioDelete] = useState<
+    HistoryEntry[] | null
+  >(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const entriesRef = useRef<HistoryEntry[]>([]);
   const loadingRef = useRef(false);
@@ -236,6 +234,56 @@ export const HistorySettings: React.FC = () => {
     }
   };
 
+  /**
+   * Delete the recordings of `ids` and keep their transcripts. Optimistic, and
+   * rolls back to the snapshot when the command fails.
+   */
+  const deleteRecordings = async (ids: readonly number[]) => {
+    const targets = new Set(ids);
+    const snapshot = entries;
+    setEntries((prev) =>
+      prev.map((e) => (targets.has(e.id) ? { ...e, file_name: "" } : e)),
+    );
+
+    const result = await commands
+      .deleteHistoryAudio([...ids])
+      .catch((error: unknown) => {
+        setEntries(snapshot);
+        throw error;
+      });
+    if (result.status !== "ok") {
+      setEntries(snapshot);
+      throw new Error(String(result.error));
+    }
+    return result.data;
+  };
+
+  const deleteEntryRecording = async (id: number) => {
+    try {
+      await deleteRecordings([id]);
+    } catch (error) {
+      console.error("Failed to delete recording:", error);
+      toast.error(t("settings.history.deleteAudioError"));
+    }
+  };
+
+  const confirmAudioDelete = async () => {
+    if (!pendingAudioDelete || deleting) return;
+    setDeleting(true);
+    try {
+      const count = await deleteRecordings(
+        pendingAudioDelete.map((entry) => entry.id),
+      );
+      toast.success(t("settings.history.deletedAudioCount", { count }));
+      setPendingAudioDelete(null);
+    } catch (error) {
+      console.error("Failed to delete recordings:", error);
+      toast.error(t("settings.history.deleteAudioError"));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const retryHistoryEntry = async (id: number) => {
     const result = await commands.retryHistoryEntryTranscription(id);
     if (result.status !== "ok") {
@@ -362,6 +410,9 @@ export const HistorySettings: React.FC = () => {
           selectedEntries={selectedEntries}
           onClearSelection={() => setSelectedIds(new Set())}
           onDeleteSelected={openSelectionConfirm}
+          onDeleteSelectedAudio={() =>
+            setPendingAudioDelete(selectedEntries.filter(hasAudio))
+          }
         />
         <AudioPlayerGroup>
           <div className="divide-y divide-mid-gray/20">
@@ -378,6 +429,7 @@ export const HistorySettings: React.FC = () => {
                 onCopyText={() => copyToClipboard(entry.transcription_text)}
                 getAudioUrl={getAudioUrl}
                 deleteAudio={deleteAudioEntry}
+                deleteRecording={deleteEntryRecording}
                 retryTranscription={retryHistoryEntry}
                 saveText={saveEntryText}
               />
@@ -461,6 +513,46 @@ export const HistorySettings: React.FC = () => {
           )}
         </div>
       </Dialog>
+
+      <Dialog
+        open={pendingAudioDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setPendingAudioDelete(null);
+        }}
+        title={t("settings.history.deleteAudioTitle")}
+        description={t("settings.history.deleteAudioDescription", {
+          count: pendingAudioDelete?.length ?? 0,
+        })}
+        closeLabel={t("settings.history.cancel")}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              size="md"
+              disabled={deleting}
+              onClick={() => setPendingAudioDelete(null)}
+            >
+              {t("settings.history.cancel")}
+            </Button>
+            <Button
+              variant="danger"
+              size="md"
+              disabled={deleting || (pendingAudioDelete?.length ?? 0) === 0}
+              onClick={() => void confirmAudioDelete()}
+            >
+              {deleting
+                ? t("settings.history.deleting")
+                : t("settings.history.confirmDeleteAudio", {
+                    count: pendingAudioDelete?.length ?? 0,
+                  })}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-text/80">
+          {t("settings.history.deleteWarning")}
+        </p>
+      </Dialog>
     </div>
   );
 };
@@ -516,6 +608,7 @@ interface SelectionToolbarProps {
   selectedEntries: HistoryEntry[];
   onClearSelection: () => void;
   onDeleteSelected: () => void;
+  onDeleteSelectedAudio: () => void;
 }
 
 /**
@@ -537,6 +630,7 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   selectedEntries,
   onClearSelection,
   onDeleteSelected,
+  onDeleteSelectedAudio,
 }) => {
   const { t, i18n } = useTranslation();
   const selectAllRef = useRef<HTMLInputElement>(null);
@@ -553,6 +647,7 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   const exportableEntries = selectedEntries.filter(
     (entry) => entry.transcription_text.trim().length > 0,
   );
+  const withAudioCount = selectedEntries.filter(hasAudio).length;
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-mid-gray/20 px-4 py-2">
@@ -619,6 +714,18 @@ const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           <Button
             variant="danger-ghost"
             size="sm"
+            onClick={onDeleteSelectedAudio}
+            disabled={withAudioCount === 0}
+            className="flex items-center gap-1.5"
+          >
+            <FileAudio className="w-3.5 h-3.5" />
+            {t("settings.history.deleteSelectedAudio", {
+              count: withAudioCount,
+            })}
+          </Button>
+          <Button
+            variant="danger-ghost"
+            size="sm"
             onClick={onDeleteSelected}
             className="flex items-center gap-1.5"
           >
@@ -641,6 +748,8 @@ interface HistoryEntryProps {
   onCopyText: () => Promise<boolean>;
   getAudioUrl: (fileName: string) => Promise<string | null>;
   deleteAudio: (id: number) => Promise<void>;
+  /** Delete only the recording and keep the transcript. */
+  deleteRecording: (id: number) => Promise<void>;
   retryTranscription: (id: number) => Promise<void>;
   saveText: (id: number, text: string) => Promise<void>;
 }
@@ -654,6 +763,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   onCopyText,
   getAudioUrl,
   deleteAudio,
+  deleteRecording,
   retryTranscription,
   saveText,
 }) => {
@@ -661,6 +771,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   const [showCopied, setShowCopied] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const entryHasAudio = hasAudio(entry);
   const checkboxId = `history-select-${entry.id}`;
 
   const hasTranscription = entry.transcription_text.trim().length > 0;
@@ -714,19 +825,17 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
 
   const formattedDate = formatDateTime(String(entry.timestamp), i18n.language);
 
-  const editor = (
-    <EditableText
-      value={entry.transcription_text}
-      onSave={handleSaveText}
-      // Transcripts are not markdown: a line starting with "- " is a dash, and
-      // *asterisks* must survive the round trip.
-      format="text"
-      editLabel={t("settings.history.editTranscript")}
-      emptyLabel={t("settings.history.transcriptionFailed")}
-      disabled={retrying}
-      rows={8}
-    />
-  );
+  const editorProps = {
+    value: entry.transcription_text,
+    onSave: handleSaveText,
+    // Transcripts are not markdown: a line starting with "- " is a dash, and
+    // *asterisks* must survive the round trip.
+    format: "text" as const,
+    editLabel: t("settings.history.editTranscript"),
+    emptyLabel: t("settings.history.transcriptionFailed"),
+    disabled: retrying,
+    rows: 8,
+  };
 
   return (
     <div className="px-4 py-2 pb-5 flex flex-col gap-3">
@@ -781,7 +890,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
           </IconButton>
           <IconButton
             onClick={handleRetranscribe}
-            disabled={retrying}
+            disabled={retrying || !entryHasAudio}
             label={t("settings.history.retranscribe")}
           >
             <RotateCcw
@@ -843,24 +952,37 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
             )}
             {t("settings.history.transcript")}
           </button>
-          {expanded ? (
-            <div className="mt-2">{editor}</div>
-          ) : (
-            <button
-              type="button"
-              className="mt-1 block w-full text-start text-sm text-text/70 truncate cursor-pointer hover:text-text focus:outline-none focus-visible:underline"
-              onClick={() => setExpanded(true)}
-              title={t("settings.history.expandTranscript")}
-            >
-              {previewOf(entry.transcription_text)}
-            </button>
-          )}
+          <div className={expanded ? "mt-2" : "mt-1"}>
+            <CollapsibleText
+              {...editorProps}
+              expanded={expanded}
+              onExpandedChange={setExpanded}
+              expandLabel={t("settings.history.expandTranscript")}
+            />
+          </div>
         </div>
       ) : (
-        <div className="pb-2">{editor}</div>
+        <div className="pb-2">
+          <EditableText {...editorProps} />
+        </div>
       )}
 
-      <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
+      {entryHasAudio ? (
+        <div className="flex items-center gap-2">
+          <AudioPlayer onLoadRequest={handleLoadAudio} className="flex-1" />
+          <IconButton
+            onClick={() => void deleteRecording(entry.id)}
+            disabled={retrying}
+            label={t("settings.history.deleteAudio")}
+          >
+            <Trash2 width={16} height={16} />
+          </IconButton>
+        </div>
+      ) : (
+        <p className="text-xs text-mid-gray">
+          {t("settings.history.audioDeleted")}
+        </p>
+      )}
     </div>
   );
 };

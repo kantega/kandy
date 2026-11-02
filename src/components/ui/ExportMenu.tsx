@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
 import { Download, FileText, FileType, Loader2 } from "lucide-react";
 
-import { saveExport } from "@/lib/export";
 import type { ExportDoc, ExportFormat } from "@/lib/export";
+
+import { useExportAction } from "./useExportAction";
 
 interface ExportMenuProps {
   /**
@@ -20,7 +20,7 @@ interface ExportMenuProps {
   alignRight?: boolean;
 }
 
-const FORMATS: ReadonlyArray<{
+export const EXPORT_FORMATS: ReadonlyArray<{
   format: ExportFormat;
   labelKey: string;
   Icon: typeof FileText;
@@ -47,7 +47,8 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [busyFormat, setBusyFormat] = useState<ExportFormat | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  // Guards against a toast firing after the row has been unmounted.
+  const exportDoc = useExportAction();
+  // Guards against a state update after the row has been unmounted.
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -87,15 +88,7 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
     setBusyFormat(format);
 
     try {
-      const result = await saveExport(buildDoc(), format);
-      if (!mountedRef.current) return;
-      // A dismissed save dialog is not a failure and should stay silent.
-      if (result.saved) {
-        toast.success(t("export.saved"), { description: result.path });
-      }
-    } catch (error) {
-      if (!mountedRef.current) return;
-      toast.error(t("export.errors.failed"), { description: String(error) });
+      await exportDoc(buildDoc(), format);
     } finally {
       if (mountedRef.current) setBusyFormat(null);
     }
@@ -133,7 +126,7 @@ export const ExportMenu: React.FC<ExportMenuProps> = ({
             alignRight ? "right-0" : "left-0"
           }`}
         >
-          {FORMATS.map(({ format, labelKey, Icon }) => (
+          {EXPORT_FORMATS.map(({ format, labelKey, Icon }) => (
             <button
               key={format}
               type="button"

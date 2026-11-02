@@ -51,6 +51,9 @@ pub async fn compare_models(
                 .get_latest_completed_entry()
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| "No dictation in history yet".to_string())?;
+            if entry.file_name.is_empty() {
+                return Err("The latest dictation has no recording".to_string());
+            }
             history_manager.get_audio_file_path(&entry.file_name)
         }
     };

@@ -188,7 +188,8 @@ body {
   font-size: 14px;
   margin: 2px 0 6px;
 }
-.main .lead .exp {
+.main .lead .exp,
+.main .lead .built {
   display: inline-block;
   font-size: 10px;
   letter-spacing: 0.08em;

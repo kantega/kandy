@@ -1,7 +1,7 @@
 # Framtidige ideer
 
 Tretti prototypideer for Kandy, hver tegnet som et skjermbilde av appen.
-Ingen av dem er bygget. Mappen er en idébank, ikke en plan.
+Ideer merket «Bygget» finnes i appen. Mappen er en idébank, ikke en plan.
 
 Åpne `index.html` i en nettleser for å bla gjennom som lysbildeserie.
 Piltaster bytter bilde, `G` viser alle som rutenett, `F` gir fullskjerm.

@@ -9,6 +9,7 @@ mod commands;
 mod input;
 mod kantega_llm;
 mod managers;
+mod meeting_chapters;
 mod overlay;
 pub mod portable;
 mod secure_input;
@@ -568,6 +569,7 @@ pub fn run(cli_args: CliArgs) {
             commands::history::get_audio_file_path,
             commands::history::delete_history_entry,
             commands::history::delete_history_entries,
+            commands::history::delete_history_audio,
             commands::history::delete_all_history_entries,
             commands::history::get_history_stats,
             commands::history::update_history_entry_text,
@@ -577,6 +579,10 @@ pub fn run(cli_args: CliArgs) {
             commands::meeting::is_meeting_recording,
             commands::meeting::upload_meeting_audio,
             commands::meeting::summarize_meeting,
+            commands::meeting::generate_meeting_chapters,
+            commands::meeting::delete_meeting_audio,
+            commands::meeting::improve_meeting_transcript,
+            commands::meeting::update_meeting_paragraph,
             commands::meeting::get_meetings,
             commands::meeting::delete_meeting,
             commands::meeting::rename_meeting,
@@ -732,7 +738,7 @@ pub fn run(cli_args: CliArgs) {
             let mut win_builder =
                 tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
                     .title("Kandy")
-                    .inner_size(680.0, 570.0)
+                    .inner_size(960.0, 760.0)
                     .min_inner_size(680.0, 570.0)
                     .resizable(true)
                     .maximizable(true)

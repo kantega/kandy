@@ -372,7 +372,19 @@
       "editedBadge": "Edited",
       "exportDocTitle": "Transcription",
       "transcript": "Transcript",
-      "expandTranscript": "Show full transcript"
+      "expandTranscript": "Show full transcript",
+      "deleteAudio": "Delete recording, keep text",
+      "deleteAudioError": "Failed to delete the recording. Please try again.",
+      "audioDeleted": "Recording deleted",
+      "deletedAudioCount_one": "Deleted {{count}} recording",
+      "deletedAudioCount_other": "Deleted {{count}} recordings",
+      "deleteAudioTitle": "Delete recordings?",
+      "deleteAudioDescription_one": "This removes the recording of {{count}} entry. The transcript stays.",
+      "deleteAudioDescription_other": "This removes the recordings of {{count}} entries. The transcripts stay.",
+      "confirmDeleteAudio_one": "Delete {{count}} recording",
+      "confirmDeleteAudio_other": "Delete {{count}} recordings",
+      "deleteSelectedAudio_one": "Delete {{count}} recording",
+      "deleteSelectedAudio_other": "Delete {{count}} recordings"
     },
     "debug": {
       "logDirectory": {
@@ -560,7 +572,10 @@
       "unsupportedFile_one": "1 file was skipped",
       "unsupportedFile_other": "{{count}} files were skipped",
       "unsupportedFileHint": "Kandy reads these formats: {{formats}}.",
-      "audioSaveFailed": "Could not save the recording"
+      "audioSaveFailed": "Could not save the recording",
+      "chaptersFailed": "Could not make chapters",
+      "deleteAudioFailed": "Could not delete the recording",
+      "improveFailed": "Could not improve the transcript"
     },
     "recording": "Recording",
     "hint": "Records the selected input and transcribes locally with Whisper. Drop audio files anywhere on this tab.",
@@ -582,6 +597,30 @@
       "description": "The recording, transcript and summary are removed permanently.",
       "confirm": "Delete",
       "cancel": "Cancel"
+    },
+    "chapters": {
+      "generate": "Make chapters",
+      "regenerate": "Make chapters again",
+      "expandAll": "Open all chapters",
+      "collapseAll": "Fold all chapters",
+      "empty": "No text in this chapter."
+    },
+    "deleteAudio": "Delete recording, keep text",
+    "audioDeleted": "Recording deleted",
+    "deleteAudioTitle": "Delete the recording?",
+    "deleteAudioDescription": "The audio file is removed. Transcript, summary and chapters stay.",
+    "confirmDeleteAudio": "Delete recording",
+    "playFrom": "Play from {{time}}",
+    "editParagraph": "Edit paragraph",
+    "improve": {
+      "run": "Improve transcript"
+    },
+    "chapterCount_one": "{{count}} chapter",
+    "chapterCount_other": "{{count}} chapters",
+    "audioActions": "Recording options",
+    "moreActions": "More options",
+    "status": {
+      "chapters": "Chapters"
     }
   },
   "export": {
@@ -601,11 +640,14 @@
       "saveFailed": "Could not save changes",
       "editSummary": "Edit summary",
       "editTranscript": "Edit transcript",
-      "editTitle": "Edit title"
+      "editTitle": "Edit title",
+      "doubleClickHint": "Double-click to edit"
     }
   },
   "audioPlayer": {
     "play": "Play",
-    "pause": "Pause"
+    "pause": "Pause",
+    "speed": "Playback speed",
+    "speedLabel": "Playback speed {{rate}}, click to change"
   }
 }

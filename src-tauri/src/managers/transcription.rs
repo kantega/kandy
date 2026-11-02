@@ -6,7 +6,7 @@ use crate::managers::model::ModelManager;
 use crate::settings::{get_settings, AppSettings};
 use anyhow::Result;
 use log::{debug, error, info, warn};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Condvar, Mutex, MutexGuard};
@@ -15,8 +15,39 @@ use std::time::{Duration, SystemTime};
 use tauri::{AppHandle, Emitter, Manager};
 use transcribe_cpp::{
     Backend, Model, ModelOptions, RunExtension, RunOptions, Session, StreamOptions, Task,
-    WhisperRunOptions,
+    Transcript, WhisperRunOptions,
 };
+
+/// One timed stretch of a transcript, in milliseconds from the start of the
+/// audio. The text is the engine's own, before filler-word removal and custom
+/// word correction, since it only serves to place the text in time.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TimedSegment {
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub text: String,
+}
+
+/// A finished transcript together with the segment timings the engine reported.
+#[derive(Clone, Debug, Default)]
+pub struct DetailedTranscript {
+    pub text: String,
+    pub segments: Vec<TimedSegment>,
+}
+
+/// Keep the segments that carry text, as plain start/end/text rows.
+fn timed_segments(transcript: &Transcript) -> Vec<TimedSegment> {
+    transcript
+        .segments
+        .iter()
+        .filter(|segment| !segment.text.trim().is_empty())
+        .map(|segment| TimedSegment {
+            start_ms: segment.t0_ms,
+            end_ms: segment.t1_ms,
+            text: segment.text.trim().to_string(),
+        })
+        .collect()
+}
 
 /// Unload the model after this much idle time.
 const MODEL_IDLE_UNLOAD: Duration = Duration::from_secs(5 * 60);
@@ -714,6 +745,13 @@ impl TranscriptionManager {
     }
 
     pub fn transcribe(&self, audio: Vec<f32>) -> Result<String> {
+        self.transcribe_detailed(audio)
+            .map(|transcript| transcript.text)
+    }
+
+    /// Like [`Self::transcribe`], but also returns the segment timings. Meetings
+    /// use them to place chapters in the recording.
+    pub fn transcribe_detailed(&self, audio: Vec<f32>) -> Result<DetailedTranscript> {
         self.touch_activity();
 
         let st = std::time::Instant::now();
@@ -722,7 +760,7 @@ impl TranscriptionManager {
 
         if audio.is_empty() {
             debug!("Empty audio vector");
-            return Ok(String::new());
+            return Ok(DetailedTranscript::default());
         }
 
         // If the model is loading, wait for it to complete.
@@ -771,7 +809,7 @@ impl TranscriptionManager {
             model_languages
         );
 
-        let transcribe_result = catch_unwind(AssertUnwindSafe(|| -> Result<String> {
+        let transcribe_result = catch_unwind(AssertUnwindSafe(|| -> Result<Transcript> {
             // Custom words become the whisper initial prompt. Other families
             // (parakeet) have no prompt slot; they still get the fuzzy
             // post-correction in `post_process_transcription_text`.
@@ -800,11 +838,10 @@ impl TranscriptionManager {
 
             engine
                 .run(&audio, &run_options)
-                .map(|t| t.text)
                 .map_err(|e| anyhow::anyhow!("transcribe-cpp transcription failed: {}", e))
         }));
 
-        let text = match transcribe_result {
+        let transcript = match transcribe_result {
             Ok(inner_result) => {
                 self.return_engine(engine, &active_model);
                 inner_result?
@@ -839,7 +876,8 @@ impl TranscriptionManager {
             }
         };
 
-        let final_result = post_process_transcription_text(text, &settings);
+        let segments = timed_segments(&transcript);
+        let final_result = post_process_transcription_text(transcript.text, &settings);
 
         // Real-time factor: audio_secs / elapsed_secs, e.g. 4.00x means
         // transcribed 4x faster than real time.
@@ -864,7 +902,10 @@ impl TranscriptionManager {
             );
         }
 
-        Ok(final_result)
+        Ok(DetailedTranscript {
+            text: final_result,
+            segments,
+        })
     }
 }
 

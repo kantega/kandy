@@ -23,6 +23,8 @@ export const MeetingSettings: React.FC = () => {
     phase,
     elapsed,
     summarizingId,
+    chapteringId,
+    improvingId,
     isDragging,
     startRecording,
     stopRecording,
@@ -30,30 +32,42 @@ export const MeetingSettings: React.FC = () => {
     summarizeThisMeeting,
     setSummarizeThisMeeting,
     summarize,
+    generateChapters,
+    improveTranscript,
+    saveParagraph,
     deleteMeeting,
     renameMeeting,
     saveSummary,
     saveTranscript,
     downloadAudio,
+    deleteAudio,
     getAudioUrl,
   } = useMeetings(autoSummarize);
   const actions = useMemo<MeetingActions>(
     () => ({
       summarize,
+      generateChapters,
+      improveTranscript,
+      saveParagraph,
       deleteMeeting,
       renameMeeting,
       saveSummary,
       saveTranscript,
       downloadAudio,
+      deleteAudio,
       getAudioUrl,
     }),
     [
       summarize,
+      generateChapters,
+      improveTranscript,
+      saveParagraph,
       deleteMeeting,
       renameMeeting,
       saveSummary,
       saveTranscript,
       downloadAudio,
+      deleteAudio,
       getAudioUrl,
     ],
   );
@@ -97,6 +111,8 @@ export const MeetingSettings: React.FC = () => {
         model={model}
         hasKey={hasKey}
         summarizingId={summarizingId}
+        chapteringId={chapteringId}
+        improvingId={improvingId}
         defaultPrompt={defaultPrompt}
         actions={actions}
       />

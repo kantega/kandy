@@ -5,13 +5,15 @@ import { toast } from "sonner";
 import { Check, Loader2, Pencil, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
+import { useSingleOrDoubleClick } from "@/hooks/useSingleOrDoubleClick";
+
 import { Button } from "./Button";
 import { Textarea } from "./Textarea";
 
 /** How the stored value should be rendered while not editing. */
 export type EditableTextFormat = "markdown" | "text";
 
-interface EditableTextProps {
+export interface EditableTextProps {
   value: string;
   /**
    * Persists the edited value. Rejecting keeps the editor open with the draft
@@ -31,10 +33,28 @@ interface EditableTextProps {
   rows?: number;
   /** Extra controls shown beside the edit button while in read mode. */
   actions?: React.ReactNode;
+  /**
+   * Single click on the text in read mode. Held back long enough to tell it
+   * apart from the double click that opens the editor.
+   */
+  onTextClick?: () => void;
+  /** Mount straight into edit mode. */
+  startEditing?: boolean;
+  /**
+   * `"document"` sets markdown as a document to read: larger text, more
+   * line height and clear headings. Used for meeting summaries.
+   */
+  variant?: "default" | "document";
 }
 
-const MARKDOWN_CLASSES =
-  "max-w-none text-sm text-text/90 space-y-1 whitespace-normal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_em]:italic [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-mid-gray/40 [&_blockquote]:pl-3 [&_blockquote]:text-text/70 [&_code]:font-mono [&_code]:text-[0.9em]";
+/** Lists, headings, quotes and code, shared by both markdown looks. */
+const MARKDOWN_BASE =
+  "max-w-none text-text/90 whitespace-normal [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-semibold [&_em]:italic [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-mid-gray/40 [&_blockquote]:pl-3 [&_blockquote]:text-text/70 [&_code]:font-mono [&_code]:text-[0.9em]";
+
+const MARKDOWN_CLASSES = `${MARKDOWN_BASE} text-sm space-y-1`;
+
+/** `variant="document"`: larger text, more air, headings that stand out. */
+const DOCUMENT_CLASSES = `${MARKDOWN_BASE} text-[15px] leading-relaxed space-y-2 [&_h1]:text-base [&_h2]:text-base [&_h1]:pt-3 [&_h2]:pt-3 [&_h3]:pt-2 [&_li]:my-0.5`;
 
 /**
  * A block of markdown or plain text that can be edited in place.
@@ -55,9 +75,12 @@ export const EditableText: React.FC<EditableTextProps> = ({
   className = "",
   rows = 8,
   actions,
+  onTextClick,
+  startEditing = false,
+  variant = "default",
 }) => {
   const { t } = useTranslation();
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(startEditing && !disabled);
   const [draft, setDraft] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
   const mountedRef = useRef(true);
@@ -76,6 +99,18 @@ export const EditableText: React.FC<EditableTextProps> = ({
   }, [value, isEditing]);
 
   const isDirty = draft !== value;
+
+  const startEditingOnDoubleClick = useCallback(() => {
+    if (disabled) return;
+    // The double click has selected a word; drop it so the editor opens clean.
+    window.getSelection()?.removeAllRanges();
+    setIsEditing(true);
+  }, [disabled]);
+
+  const textClickHandlers = useSingleOrDoubleClick(
+    onTextClick,
+    startEditingOnDoubleClick,
+  );
 
   const handleCancel = useCallback(() => {
     setDraft(value);
@@ -170,14 +205,22 @@ export const EditableText: React.FC<EditableTextProps> = ({
   return (
     <div className={`group/editable flex flex-col gap-1 ${className}`}>
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
+        <div
+          className={`min-w-0 flex-1 ${onTextClick ? "cursor-pointer" : ""}`}
+          title={disabled ? undefined : t("export.edit.doubleClickHint")}
+          {...textClickHandlers}
+        >
           {hasContent ? (
             format === "markdown" ? (
-              <div className={MARKDOWN_CLASSES}>
+              <div
+                className={
+                  variant === "document" ? DOCUMENT_CLASSES : MARKDOWN_CLASSES
+                }
+              >
                 <ReactMarkdown>{value}</ReactMarkdown>
               </div>
             ) : (
-              <p className="whitespace-pre-wrap text-sm text-text/90">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-text/90">
                 {value}
               </p>
             )
@@ -196,7 +239,9 @@ export const EditableText: React.FC<EditableTextProps> = ({
             disabled={disabled}
             title={editLabel}
             aria-label={editLabel}
-            className={`rounded-md border border-transparent p-1 text-mid-gray transition-colors hover:border-mid-gray/20 hover:bg-mid-gray/10 hover:text-text focus:outline-none focus-visible:ring-1 focus-visible:ring-logo-primary ${
+            // Shown on hover or focus, so the text carries the view. Double
+            // click edits as well.
+            className={`rounded-md border border-transparent p-1 text-mid-gray opacity-0 transition group-hover/editable:opacity-100 focus-visible:opacity-100 hover:border-mid-gray/20 hover:bg-mid-gray/10 hover:text-text focus:outline-none focus-visible:ring-1 focus-visible:ring-logo-primary ${
               disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
             }`}
           >

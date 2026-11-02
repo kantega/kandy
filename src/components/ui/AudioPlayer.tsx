@@ -1,11 +1,14 @@
 import React, {
   createContext,
+  forwardRef,
   useCallback,
   useContext,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
 import { Play, Pause } from "lucide-react";
@@ -17,6 +20,58 @@ interface AudioPlayerProps {
   onLoadRequest?: () => Promise<string | null>;
   className?: string;
   autoPlay?: boolean;
+  /** Playback position in seconds, a few times a second while playing. */
+  onTimeUpdate?: (seconds: number) => void;
+}
+
+/** Speeds the rate button steps through, wrapping back to 1× after 2×. */
+const PLAYBACK_RATES = [1, 1.25, 1.5, 1.75, 2] as const;
+const PLAYBACK_RATE_KEY = "kandy.playbackRate";
+
+const readStoredRate = (): number => {
+  try {
+    const stored = Number(localStorage.getItem(PLAYBACK_RATE_KEY));
+    return PLAYBACK_RATES.find((rate) => rate === stored) ?? 1;
+  } catch {
+    return 1;
+  }
+};
+
+/**
+ * One playback speed for every player, so speeding up one recording speeds up
+ * the next. Remembered between sessions in localStorage.
+ */
+const playbackRateStore = (() => {
+  let rate = readStoredRate();
+  const listeners = new Set<() => void>();
+  return {
+    get: () => rate,
+    set: (next: number) => {
+      rate = next;
+      try {
+        localStorage.setItem(PLAYBACK_RATE_KEY, String(next));
+      } catch {
+        /* storage unavailable; the rate still applies for this session */
+      }
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+})();
+
+const nextPlaybackRate = (rate: number): number => {
+  const index = PLAYBACK_RATES.findIndex((r) => r === rate);
+  return PLAYBACK_RATES[(index + 1) % PLAYBACK_RATES.length];
+};
+
+export interface AudioPlayerHandle {
+  /** Jump to `seconds` and play, loading the recording first if needed. */
+  seekTo: (seconds: number) => void;
 }
 
 interface AudioPlayerGroupContextValue {
@@ -51,14 +106,25 @@ export const AudioPlayerGroup: React.FC<React.PropsWithChildren> = ({
   );
 };
 
-export const AudioPlayer: React.FC<AudioPlayerProps> = ({
-  src: initialSrc,
-  onLoadRequest,
-  className = "",
-  autoPlay = false,
-}) => {
-  const { t } = useTranslation();
+const AudioPlayerBase: React.ForwardRefRenderFunction<
+  AudioPlayerHandle,
+  AudioPlayerProps
+> = (
+  {
+    src: initialSrc,
+    onLoadRequest,
+    className = "",
+    autoPlay = false,
+    onTimeUpdate,
+  },
+  ref,
+) => {
+  const { t, i18n } = useTranslation();
   const group = useContext(AudioPlayerGroupContext);
+  const playbackRate = useSyncExternalStore(
+    playbackRateStore.subscribe,
+    playbackRateStore.get,
+  );
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
@@ -70,6 +136,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const src = loadedSrc;
   const animationRef = useRef<number>();
   const dragTimeRef = useRef<number>(0);
+  // Ref so the media listeners below always call the latest callback.
+  const onTimeUpdateRef = useRef(onTimeUpdate);
+  useEffect(() => {
+    onTimeUpdateRef.current = onTimeUpdate;
+  }, [onTimeUpdate]);
+
+  /** A seek asked for before the metadata was in, applied once it is. */
+  const pendingSeekRef = useRef<number | null>(null);
 
   // Use refs to avoid stale closures in animation loop
   const isPlayingRef = useRef(false);
@@ -126,7 +200,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
     const handleLoadedMetadata = () => {
       setDuration(audio.duration || 0);
-      setCurrentTime(0);
+      const pending = pendingSeekRef.current;
+      pendingSeekRef.current = null;
+      if (pending !== null) audio.currentTime = pending;
+      setCurrentTime(pending ?? 0);
     };
 
     const handleEnded = () => {
@@ -144,7 +221,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setIsPlaying(false);
     };
 
+    const handleTimeUpdate = () => {
+      onTimeUpdateRef.current?.(audio.currentTime);
+    };
+
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("play", handlePlay);
     audio.addEventListener("pause", handlePause);
@@ -152,6 +234,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return () => {
       group?.releasePlayback(audio);
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("play", handlePlay);
       audio.removeEventListener("pause", handlePause);
@@ -179,6 +262,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
     prevLoadedSrc.current = loadedSrc;
   }, [loadedSrc, autoPlay, initialSrc, onLoadRequest]);
+
+  // Loading a new source resets playbackRate to defaultPlaybackRate, so both
+  // are set, and again whenever the source changes.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.defaultPlaybackRate = playbackRate;
+    audio.playbackRate = playbackRate;
+  }, [playbackRate, src]);
 
   // Global drag handlers
   const handleMouseUp = useCallback(() => {
@@ -212,6 +304,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     };
   }, [loadedSrc]);
 
+  /** Fetch the source; the effect watching loadedSrc starts playback. */
+  const requestLoad = useCallback(async () => {
+    if (!onLoadRequest) return;
+    setIsLoading(true);
+    try {
+      const newSrc = await onLoadRequest();
+      if (newSrc) setLoadedSrc(newSrc);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [onLoadRequest]);
+
   const togglePlay = async () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -220,24 +324,46 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     try {
       if (isPlaying) {
         audio.pause();
+      } else if (!src) {
+        await requestLoad();
       } else {
-        // If no src loaded yet, request it
-        if (!src && onLoadRequest) {
-          setIsLoading(true);
-          const newSrc = await onLoadRequest();
-          setIsLoading(false);
-          if (newSrc) {
-            setLoadedSrc(newSrc);
-            // Playback will be triggered by the useEffect watching loadedSrc
-          }
-        } else if (src) {
-          await audio.play();
-        }
+        await audio.play();
       }
     } catch (error) {
       console.error("Playback failed:", error);
     }
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      seekTo: (seconds: number) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+
+        if (!src) {
+          pendingSeekRef.current = seconds;
+          if (!isLoading) {
+            requestLoad().catch((error) => {
+              console.error("Loading audio failed:", error);
+            });
+          }
+          return;
+        }
+
+        if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {
+          audio.currentTime = seconds;
+          setCurrentTime(seconds);
+        } else {
+          pendingSeekRef.current = seconds;
+        }
+        audio.play().catch((error) => {
+          console.error("Playback failed:", error);
+        });
+      },
+    }),
+    [src, isLoading, requestLoad],
+  );
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
@@ -277,6 +403,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const progressPercent = getProgressPercent();
+
+  const formattedRate = `${playbackRate.toLocaleString(i18n.language, {
+    maximumFractionDigits: 2,
+  })}×`;
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
@@ -319,6 +449,18 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           {formatTime(duration)}
         </span>
       </div>
+
+      <button
+        type="button"
+        onClick={() => playbackRateStore.set(nextPlaybackRate(playbackRate))}
+        title={t("audioPlayer.speed")}
+        aria-label={t("audioPlayer.speedLabel", { rate: formattedRate })}
+        className="min-w-[42px] rounded-md px-1 py-0.5 text-xs tabular-nums text-mid-gray transition-colors cursor-pointer hover:text-logo-primary focus:outline-none focus-visible:ring-1 focus-visible:ring-logo-primary"
+      >
+        {formattedRate}
+      </button>
     </div>
   );
 };
+
+export const AudioPlayer = forwardRef(AudioPlayerBase);

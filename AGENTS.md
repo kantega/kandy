@@ -70,6 +70,11 @@ when the model cannot stream. Meetings still transcribe in batch.
 - `audio_toolkit/` device enumeration, resampling, Silero VAD, filler words.
 - `kantega_llm.rs` the only HTTP client for LLM calls: `complete()` and
   `summarize()`. Never call any other LLM endpoint.
+- `meeting_chapters.rs` meeting chapters and the improved transcript: the
+  timed transcript sent to the LLM, both prompts, and parsing of the JSON
+  answers. Times come from the segment timings `transcribe_detailed` returns,
+  stored per meeting. The improved transcript is sent in five-minute excerpts;
+  an excerpt with an unusable answer keeps its original text.
 - `actions.rs`, `transcription_coordinator.rs` shortcut actions and the
   recording state machine.
 - `shortcut/` global shortcuts via `handy-keys`. `secure_input.rs` macOS
@@ -95,7 +100,12 @@ when the model cannot stream. Meetings still transcribe in batch.
   used by Meeting and Post-processing.
 - `components/ui/` primitives: `SettingsGroup`, `SettingContainer` (title +
   always-visible description + control), `ToggleSwitch`, `Button`, `Input`,
-  `Textarea`, `Dropdown`, `Dialog`, `EditableText`, `ExportMenu`, `AudioPlayer`.
+  `Textarea`, `Dropdown`, `Dialog`, `EditableText`, `CollapsibleText`,
+  `ExportMenu`, `ActionMenu` (the `⋯` menu), `AudioPlayer`.
+- `components/settings/meeting/` the meeting pane. `MeetingCard` holds the
+  sticky player, the status line and the Referat/Transkripsjon tabs;
+  `MeetingTranscript` renders chapters with a time margin; `useMeetings` owns
+  every backend call and the summary → chapters → improved transcript chain.
 - `stores/settingsStore.ts` Zustand store; `settingUpdaters` maps each setting
   key to its Tauri command. Initialised once in `main.tsx`.
 - `stores/modelStore.ts`, `stores/meetingStore.ts`.

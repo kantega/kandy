@@ -69,6 +69,8 @@ pub enum HistoryUpdatePayload {
 #[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct HistoryEntry {
     pub id: i64,
+    /// Recording in the recordings folder. Empty once the user has deleted the
+    /// audio and kept the transcript.
     pub file_name: String,
     pub timestamp: i64,
     pub saved: bool,
@@ -505,7 +507,7 @@ impl HistoryManager {
         if let Some(entry) = self.get_entry_by_id(id).await? {
             // Delete the audio file first
             let file_path = self.get_audio_file_path(&entry.file_name);
-            if file_path.exists() {
+            if !entry.file_name.is_empty() && file_path.exists() {
                 if let Err(e) = fs::remove_file(&file_path) {
                     error!("Failed to delete audio file {}: {}", entry.file_name, e);
                     // Continue with database deletion even if file deletion fails
@@ -539,7 +541,7 @@ impl HistoryManager {
     fn discard_recordings(&self, removed: &[(i64, String)]) {
         for (id, file_name) in removed {
             let file_path = self.recordings_dir.join(file_name);
-            if file_path.exists() {
+            if !file_name.is_empty() && file_path.exists() {
                 if let Err(e) = fs::remove_file(&file_path) {
                     error!("Failed to delete audio file {}: {}", file_name, e);
                 }
@@ -564,6 +566,79 @@ impl HistoryManager {
         self.discard_recordings(&removed);
 
         Ok(removed.len())
+    }
+
+    /// Delete the WAV files of several entries but keep their transcripts.
+    ///
+    /// An entry without audio has an empty `file_name`. The rows are cleared in
+    /// one transaction before any file is touched, so a rollback never leaves a
+    /// row pointing at a file that is gone. Entries that already lack audio are
+    /// skipped. Returns how many recordings were removed.
+    pub async fn delete_audio(&self, ids: &[i64]) -> Result<usize> {
+        let mut conn = self.get_connection()?;
+        let cleared = Self::clear_audio_with_conn(&mut conn, ids)?;
+
+        for (id, file_name) in &cleared {
+            let file_path = self.recordings_dir.join(file_name);
+            if file_path.exists() {
+                if let Err(e) = fs::remove_file(&file_path) {
+                    error!("Failed to delete audio file {}: {}", file_name, e);
+                }
+            }
+
+            match Self::fetch_entry(&conn, *id) {
+                Ok(Some(entry)) => {
+                    if let Err(e) = (HistoryUpdatePayload::Updated { entry }).emit(&self.app_handle)
+                    {
+                        error!("Failed to emit history-updated event: {}", e);
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => error!("Failed to reload history entry {}: {}", id, e),
+            }
+        }
+
+        debug!("Deleted audio of {} history entries", cleared.len());
+        Ok(cleared.len())
+    }
+
+    /// The database half of [`Self::delete_audio`]: empties `file_name` on every
+    /// requested row that has audio, returning the `(id, file_name)` pairs whose
+    /// files should be removed.
+    fn clear_audio_with_conn(conn: &mut Connection, ids: &[i64]) -> Result<Vec<(i64, String)>> {
+        if ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let tx = conn.transaction()?;
+        let mut cleared: Vec<(i64, String)> = Vec::new();
+
+        for chunk in ids.chunks(MAX_DELETE_CHUNK) {
+            let placeholders = vec!["?"; chunk.len()].join(",");
+
+            {
+                let sql = format!(
+                    "SELECT id, file_name FROM transcription_history \
+                     WHERE id IN ({placeholders}) AND file_name != ''"
+                );
+                let mut stmt = tx.prepare(&sql)?;
+                let rows = stmt.query_map(params_from_iter(chunk.iter()), |row| {
+                    Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                })?;
+                for row in rows {
+                    cleared.push(row?);
+                }
+            }
+
+            let sql = format!(
+                "UPDATE transcription_history SET file_name = '' WHERE id IN ({placeholders})"
+            );
+            tx.execute(&sql, params_from_iter(chunk.iter()))?;
+        }
+
+        tx.commit()?;
+
+        Ok(cleared)
     }
 
     /// Delete the whole history. Starred entries survive unless `include_saved`
@@ -826,6 +901,42 @@ mod tests {
 
         assert!(removed.is_empty());
         assert_eq!(remaining_ids(&conn), vec![id]);
+    }
+
+    fn file_name_of(conn: &Connection, id: i64) -> String {
+        conn.query_row(
+            "SELECT file_name FROM transcription_history WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .expect("select file_name")
+    }
+
+    #[test]
+    fn clear_audio_keeps_the_rows_and_reports_the_files() {
+        let mut conn = setup_conn();
+        let first = insert_saved_entry(&conn, 100, "one", false);
+        let second = insert_saved_entry(&conn, 200, "two", true);
+
+        let cleared = HistoryManager::clear_audio_with_conn(&mut conn, &[first, 9999])
+            .expect("clear audio succeeds");
+
+        assert_eq!(cleared, vec![(first, "kandy-100.wav".to_string())]);
+        assert_eq!(remaining_ids(&conn), vec![first, second]);
+        assert_eq!(file_name_of(&conn, first), "");
+        assert_eq!(file_name_of(&conn, second), "kandy-200.wav");
+    }
+
+    #[test]
+    fn clear_audio_skips_entries_already_without_audio() {
+        let mut conn = setup_conn();
+        let id = insert_saved_entry(&conn, 100, "one", false);
+        HistoryManager::clear_audio_with_conn(&mut conn, &[id]).expect("first clear succeeds");
+
+        let cleared =
+            HistoryManager::clear_audio_with_conn(&mut conn, &[id]).expect("second clear succeeds");
+
+        assert!(cleared.is_empty());
     }
 
     #[test]

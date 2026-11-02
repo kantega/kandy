@@ -565,6 +565,18 @@ async deleteHistoryEntries(ids: number[]) : Promise<Result<number, string>> {
 }
 },
 /**
+ * Delete the recordings of several entries and keep their transcripts.
+ * Returns how many recordings were removed.
+ */
+async deleteHistoryAudio(ids: number[]) : Promise<Result<number, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_history_audio", { ids }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Wipe the history. Starred entries are kept unless `include_saved` is set.
  */
 async deleteAllHistoryEntries(includeSaved: boolean) : Promise<Result<number, string>> {
@@ -654,6 +666,60 @@ async uploadMeetingAudio(filePath: string) : Promise<Result<Meeting, string>> {
 async summarizeMeeting(id: number, prompt: string | null) : Promise<Result<Meeting, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("summarize_meeting", { id, prompt }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Split a meeting into chapters with start times, titles and short summaries,
+ * via the Kantega LLM proxy, and store them on the meeting.
+ * 
+ * The times come from the speech model's segment timings. A meeting saved
+ * before those were kept is transcribed once more from its recording to get
+ * them; its transcript text is left as it is.
+ */
+async generateMeetingChapters(id: number) : Promise<Result<Meeting, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("generate_meeting_chapters", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Delete a meeting's recording and keep its transcript, summary and chapters.
+ */
+async deleteMeetingAudio(id: number) : Promise<Result<Meeting, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("delete_meeting_audio", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Correct the transcript with the LLM and store it as timestamped paragraphs.
+ * 
+ * The transcript is sent in excerpts of about five minutes, with the summary
+ * as reference for names and terms. An excerpt whose answer is unusable keeps
+ * its original text, so a single bad answer never loses part of the meeting.
+ * Fails only when no excerpt could be improved.
+ */
+async improveMeetingTranscript(id: number) : Promise<Result<Meeting, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("improve_meeting_transcript", { id }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Persist a hand-edited paragraph of the improved transcript.
+ */
+async updateMeetingParagraph(id: number, index: number, text: string) : Promise<Result<Meeting, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_meeting_paragraph", { id, index, text }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -814,7 +880,18 @@ llm_api_keys?: SecretMap }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 export type BindingResponse = { success: boolean; binding: ShortcutBinding | null; error: string | null }
-export type HistoryEntry = { id: number; file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean; 
+/**
+ * One topic section of a meeting: where it starts in the recording, a short
+ * title and a few sentences on what was said. It runs until the next
+ * chapter starts, or to the end of the meeting.
+ */
+export type Chapter = { start_ms: number; title: string; summary: string }
+export type HistoryEntry = { id: number; 
+/**
+ * Recording in the recordings folder. Empty once the user has deleted the
+ * audio and kept the transcript.
+ */
+file_name: string; timestamp: number; saved: boolean; title: string; transcription_text: string; post_processed_text: string | null; post_process_prompt: string | null; post_process_requested: boolean; 
 /**
  * True once the transcript has been corrected by hand. Reset when the
  * entry is re-transcribed, since that replaces the manual text.
@@ -826,7 +903,16 @@ edited: boolean }
  */
 export type HistoryStats = { total: number; saved: number }
 export type HistoryUpdatePayload = { action: "added"; entry: HistoryEntry } | { action: "updated"; entry: HistoryEntry } | { action: "deleted"; id: number } | { action: "toggled"; id: number }
-export type Meeting = { id: number; title: string; timestamp: number; audio_file: string; transcript: string; summary: string | null; summary_prompt: string | null; model: string | null; duration_secs: number }
+export type Meeting = { id: number; title: string; timestamp: number; audio_file: string; transcript: string; summary: string | null; summary_prompt: string | null; model: string | null; duration_secs: number; 
+/**
+ * Empty until chapters have been generated.
+ */
+chapters: Chapter[]; 
+/**
+ * The improved transcript. Empty until it has been generated; the plain
+ * `transcript` is then all there is.
+ */
+paragraphs: TranscriptParagraph[] }
 export type MeetingUpdatePayload = { action: "added"; meeting: Meeting } | { action: "updated"; meeting: Meeting } | { action: "deleted"; id: number }
 export type ModelComparison = { 
 /**
@@ -936,6 +1022,11 @@ export type SoundTheme = "marimba" | "pop"
  * and `Dark` force one of the two palettes Kandy ships.
  */
 export type Theme = "system" | "light" | "dark"
+/**
+ * One paragraph of the improved transcript and where it starts in the
+ * recording.
+ */
+export type TranscriptParagraph = { start_ms: number; text: string }
 /**
  * Voice-activity detector implementation.
  */

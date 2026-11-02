@@ -72,11 +72,16 @@ function isSupportedAudioFile(path: string): boolean {
 
 export interface MeetingActions {
   summarize: (id: number, prompt?: string | null) => Promise<void>;
+  generateChapters: (id: number) => Promise<void>;
+  improveTranscript: (id: number) => Promise<void>;
+  saveParagraph: (id: number, index: number, text: string) => Promise<void>;
   deleteMeeting: (id: number) => Promise<void>;
   renameMeeting: (id: number, title: string) => Promise<void>;
   saveSummary: (id: number, summary: string) => Promise<void>;
   saveTranscript: (id: number, transcript: string) => Promise<void>;
   downloadAudio: (meeting: Meeting) => Promise<void>;
+  /** Delete the recording and keep transcript, summary and chapters. */
+  deleteAudio: (id: number) => Promise<void>;
   getAudioUrl: (fileName: string) => Promise<string | null>;
 }
 
@@ -85,6 +90,8 @@ export interface UseMeetingsResult extends MeetingActions {
   phase: MeetingPhase;
   elapsed: number;
   summarizingId: number | null;
+  chapteringId: number | null;
+  improvingId: number | null;
   isDragging: boolean;
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
@@ -108,6 +115,13 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
   const { t } = useTranslation();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [summarizingId, setSummarizingId] = useState<number | null>(null);
+  const [chapteringId, setChapteringId] = useState<number | null>(null);
+  const [improvingId, setImprovingId] = useState<number | null>(null);
+  // Read by the generation chain, which runs after the state it closed over.
+  const meetingsRef = useRef<Meeting[]>([]);
+  useEffect(() => {
+    meetingsRef.current = meetings;
+  }, [meetings]);
   const [isDragging, setIsDragging] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [summarizeThisMeeting, setSummarizeThisMeetingState] = useState(true);
@@ -166,6 +180,60 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
     return () => clearInterval(timer);
   }, [phase, recordingStartedAt]);
 
+  const makeChapters = useCallback(
+    async (id: number) => {
+      setChapteringId(id);
+      try {
+        const r = await commands.generateMeetingChapters(id);
+        if (r.status !== "ok") {
+          toast.error(t("meeting.errors.chaptersFailed"), {
+            description: String(r.error),
+          });
+        }
+      } finally {
+        setChapteringId((current) => (current === id ? null : current));
+      }
+    },
+    [t],
+  );
+
+  const improveTranscript = useCallback(
+    async (id: number) => {
+      setImprovingId(id);
+      try {
+        const r = await commands.improveMeetingTranscript(id);
+        if (r.status !== "ok") {
+          toast.error(t("meeting.errors.improveFailed"), {
+            description: String(r.error),
+          });
+        }
+      } finally {
+        setImprovingId((current) => (current === id ? null : current));
+      }
+    },
+    [t],
+  );
+
+  /**
+   * Make chapters, then the improved transcript if the meeting has none, one
+   * after the other: for a meeting without stored timings both would
+   * otherwise transcribe the recording at the same time. The chapters hold
+   * the transcript, so they never come without it. The improved transcript
+   * is made once, so remade chapters never overwrite paragraphs the user has
+   * corrected.
+   */
+  const generateChapters = useCallback(
+    async (id: number) => {
+      await makeChapters(id);
+      const meeting = meetingsRef.current.find((m) => m.id === id);
+      if (meeting && meeting.paragraphs.length === 0) {
+        await improveTranscript(id);
+      }
+    },
+    [makeChapters, improveTranscript],
+  );
+
+  /** Summarise, then make chapters and transcript in the background. */
   const summarize = useCallback(
     async (id: number, prompt: string | null = null) => {
       setSummarizingId(id);
@@ -175,12 +243,14 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
           toast.error(t("meeting.errors.summaryFailed"), {
             description: String(r.error),
           });
+          return;
         }
+        void generateChapters(id);
       } finally {
         setSummarizingId(null);
       }
     },
-    [t],
+    [generateChapters, t],
   );
 
   const startRecording = useCallback(async () => {
@@ -386,6 +456,18 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
     [t],
   );
 
+  const deleteAudio = useCallback(
+    async (id: number) => {
+      const r = await commands.deleteMeetingAudio(id);
+      if (r.status !== "ok") {
+        toast.error(t("meeting.errors.deleteAudioFailed"), {
+          description: String(r.error),
+        });
+      }
+    },
+    [t],
+  );
+
   // Rename/save do not touch local state: the backend emits an "updated"
   // MeetingUpdatePayload which the listener applies.
   const renameMeeting = useCallback(async (id: number, title: string) => {
@@ -403,11 +485,21 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
     if (r.status !== "ok") throw new Error(String(r.error));
   }, []);
 
+  const saveParagraph = useCallback(
+    async (id: number, index: number, text: string) => {
+      const r = await commands.updateMeetingParagraph(id, index, text);
+      if (r.status !== "ok") throw new Error(String(r.error));
+    },
+    [],
+  );
+
   return {
     meetings,
     phase,
     elapsed,
     summarizingId,
+    chapteringId,
+    improvingId,
     isDragging,
     startRecording,
     stopRecording,
@@ -415,11 +507,15 @@ export function useMeetings(autoSummarize: boolean): UseMeetingsResult {
     summarizeThisMeeting,
     setSummarizeThisMeeting,
     summarize,
+    generateChapters,
+    improveTranscript,
+    saveParagraph,
     deleteMeeting,
     renameMeeting,
     saveSummary,
     saveTranscript,
     downloadAudio,
+    deleteAudio,
     getAudioUrl,
   };
 }

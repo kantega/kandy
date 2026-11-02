@@ -17,6 +17,8 @@ interface MeetingListProps {
   model: string;
   hasKey: boolean;
   summarizingId: number | null;
+  chapteringId: number | null;
+  improvingId: number | null;
   defaultPrompt: string;
   actions: MeetingActions;
 }
@@ -32,6 +34,8 @@ export const MeetingList: React.FC<MeetingListProps> = ({
   model,
   hasKey,
   summarizingId,
+  chapteringId,
+  improvingId,
   defaultPrompt,
   actions,
 }) => {
@@ -99,6 +103,8 @@ export const MeetingList: React.FC<MeetingListProps> = ({
                 model={model}
                 hasKey={hasKey}
                 summarizing={summarizingId === m.id}
+                chaptering={chapteringId === m.id}
+                improving={improvingId === m.id}
                 expanded={expandedId === m.id}
                 onToggle={() => setExpanded(expandedId === m.id ? null : m.id)}
                 terms={terms}

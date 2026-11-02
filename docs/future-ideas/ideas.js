@@ -136,7 +136,7 @@ const ideas = [
   {
     nav: "meeting",
     title: "Styremøte BOB 12. oktober",
-    lead: "Automatiske kapitler i lange møter.",
+    lead: 'Automatiske kapitler i lange møter.<span class="built">BYGGET</span>',
     body: `
       <div class="cols" style="grid-template-columns: 240px 1fr">
         <div class="card stack">

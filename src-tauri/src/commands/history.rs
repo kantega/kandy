@@ -71,6 +71,20 @@ pub async fn delete_history_entries(
         .map_err(|e| e.to_string())
 }
 
+/// Delete the recordings of several entries and keep their transcripts.
+/// Returns how many recordings were removed.
+#[tauri::command]
+#[specta::specta]
+pub async fn delete_history_audio(
+    history_manager: State<'_, Arc<HistoryManager>>,
+    ids: Vec<i64>,
+) -> Result<usize, String> {
+    history_manager
+        .delete_audio(&ids)
+        .await
+        .map_err(|e| e.to_string())
+}
+
 /// Wipe the history. Starred entries are kept unless `include_saved` is set.
 #[tauri::command]
 #[specta::specta]
@@ -120,6 +134,10 @@ pub async fn retry_history_entry_transcription(
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("History entry {} not found", id))?;
+
+    if entry.file_name.is_empty() {
+        return Err("The recording has been deleted".to_string());
+    }
 
     let audio_path = history_manager.get_audio_file_path(&entry.file_name);
     let samples = crate::audio_toolkit::read_wav_samples(&audio_path)

@@ -1,7 +1,10 @@
 export { Dropdown } from "./Dropdown";
 export { Dialog } from "./Dialog";
+export { ActionMenu, type ActionMenuItem } from "./ActionMenu";
+export { CollapsibleText } from "./CollapsibleText";
 export { EditableText } from "./EditableText";
-export { ExportMenu } from "./ExportMenu";
+export { EXPORT_FORMATS, ExportMenu } from "./ExportMenu";
+export { useExportAction } from "./useExportAction";
 export { Slider } from "./Slider";
 export { ToggleSwitch } from "./ToggleSwitch";
 export { SettingContainer } from "./SettingContainer";
