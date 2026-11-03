@@ -6,6 +6,8 @@ pub mod handy_keys;
 use log::{debug, error, warn};
 use serde::Serialize;
 use specta::Type;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use tauri::AppHandle;
 
 use crate::settings::{self, get_settings, ShortcutBinding};
@@ -18,16 +20,62 @@ pub fn init_shortcuts(app: &AppHandle) {
     }
 }
 
+/// Whether the recording lifecycle currently wants the cancel shortcut.
+/// Written synchronously by start/stop, so it always holds the latest request.
+static CANCEL_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+/// Whether the cancel shortcut is actually registered with handy-keys. The
+/// lock also serializes reconciliation passes.
+static CANCEL_REGISTERED: Mutex<bool> = Mutex::new(false);
+
 /// Register the cancel shortcut (called when recording starts)
 pub fn register_cancel_shortcut(app: &AppHandle) {
     crate::secure_input::register_cancel_fallback(app);
-    handy_keys::register_cancel_shortcut(app);
+    CANCEL_REQUESTED.store(true, Ordering::SeqCst);
+    schedule_cancel_reconcile(app);
 }
 
 /// Unregister the cancel shortcut (called when recording stops)
 pub fn unregister_cancel_shortcut(app: &AppHandle) {
     crate::secure_input::unregister_cancel_fallback(app);
-    handy_keys::unregister_cancel_shortcut(app);
+    CANCEL_REQUESTED.store(false, Ordering::SeqCst);
+    schedule_cancel_reconcile(app);
+}
+
+/// Apply the requested cancel state off the calling thread. Start and stop run
+/// on the shortcut handler thread, which must not block on registration, so the
+/// work is spawned. Spawned tasks may run in any order (a very short recording
+/// can see its unregister task run before its register task), so each pass
+/// applies the latest request instead of the action that scheduled it.
+fn schedule_cancel_reconcile(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        reconcile_cancel_shortcut(&app);
+    });
+}
+
+fn reconcile_cancel_shortcut(app: &AppHandle) {
+    let mut registered = CANCEL_REGISTERED.lock().unwrap_or_else(|e| e.into_inner());
+    let requested = CANCEL_REQUESTED.load(Ordering::SeqCst);
+    if requested == *registered {
+        return;
+    }
+
+    let Some(cancel_binding) = get_settings(app).bindings.get("cancel").cloned() else {
+        return;
+    };
+
+    if requested {
+        match register_shortcut(app, cancel_binding) {
+            Ok(()) => *registered = true,
+            Err(e) => error!("Failed to register cancel shortcut: {}", e),
+        }
+    } else {
+        match unregister_shortcut(app, cancel_binding) {
+            Ok(()) => *registered = false,
+            Err(e) => error!("Failed to unregister cancel shortcut: {}", e),
+        }
+    }
 }
 
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {

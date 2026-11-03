@@ -376,10 +376,16 @@ const AudioPlayerBase: React.ForwardRefRenderFunction<
   };
 
   const handleSliderMouseDown = () => {
+    // A click without movement fires no change event; without this the
+    // release would seek to the previous drag's position.
+    dragTimeRef.current = currentTime;
     setIsDragging(true);
   };
 
   const handleSliderTouchStart = () => {
+    // A click without movement fires no change event; without this the
+    // release would seek to the previous drag's position.
+    dragTimeRef.current = currentTime;
     setIsDragging(true);
   };
 

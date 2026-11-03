@@ -2,6 +2,7 @@ use crate::input::{self, EnigoState};
 use crate::settings::{get_settings, AutoSubmitKey, PasteMethod};
 use enigo::{Direction, Enigo, Key, Keyboard};
 use log::info;
+use std::sync::{mpsc, Mutex, PoisonError};
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_clipboard_manager::ClipboardExt;
@@ -11,18 +12,42 @@ const PASTE_DELAY: Duration = Duration::from_millis(60);
 /// Wait after the paste chord before restoring the clipboard.
 const PASTE_DELAY_AFTER: Duration = Duration::from_millis(60);
 
-fn with_enigo<T>(
+/// Serializes pastes. Each one snapshots and restores the clipboard, so two
+/// overlapping pastes would save each other's transcript as "the user's
+/// clipboard". Only taken by `paste`, which never runs on the main thread.
+static PASTE_LOCK: Mutex<()> = Mutex::new(());
+
+/// Runs `f` with the shared Enigo on the main thread and waits for its result.
+///
+/// Paste runs on a worker thread so the main thread stays free while it
+/// sleeps, which lets Kandy's own windows handle a paste aimed at them. Input
+/// injection hops back here because macOS's TIS keyboard layout APIs must run
+/// on the main thread. Tauri runs the closure inline when already on the main
+/// thread, so nested calls can't deadlock.
+fn with_enigo<T: Send + 'static>(
     app_handle: &AppHandle,
-    f: impl FnOnce(&mut Enigo) -> Result<T, String>,
+    f: impl FnOnce(&mut Enigo) -> Result<T, String> + Send + 'static,
 ) -> Result<T, String> {
-    let enigo_state = app_handle
-        .try_state::<EnigoState>()
-        .ok_or("Enigo state not initialized")?;
-    let mut enigo = enigo_state
-        .0
-        .lock()
-        .map_err(|e| format!("Failed to lock Enigo: {}", e))?;
-    f(&mut enigo)
+    let (tx, rx) = mpsc::sync_channel(1);
+    let app = app_handle.clone();
+    app_handle
+        .run_on_main_thread(move || {
+            let result = (|| {
+                let enigo_state = app
+                    .try_state::<EnigoState>()
+                    .ok_or("Enigo state not initialized")?;
+                let mut enigo = enigo_state
+                    .0
+                    .lock()
+                    .map_err(|e| format!("Failed to lock Enigo: {}", e))?;
+                f(&mut enigo)
+            })();
+            let _ = tx.send(result);
+        })
+        .map_err(|e| format!("Failed to run input on the main thread: {}", e))?;
+    // A dropped closure (event loop shutting down) closes the channel.
+    rx.recv()
+        .map_err(|_| "Main thread dropped the input request".to_string())?
 }
 
 fn write_text_to_clipboard(app_handle: &AppHandle, text: &str) -> Result<(), String> {
@@ -66,7 +91,8 @@ fn paste_via_clipboard(
 
     // Capture key injection errors so the original clipboard is restored before
     // propagating them to the caller.
-    let paste_result = with_enigo(app_handle, |enigo| match paste_method {
+    let paste_method = *paste_method;
+    let paste_result = with_enigo(app_handle, move |enigo| match paste_method {
         // A mistimed chord cannot be detected, so keep the conservative 100ms
         // modifier hold.
         PasteMethod::CtrlV => input::send_paste_ctrl_v(enigo, 100),
@@ -91,7 +117,10 @@ fn paste_via_clipboard(
 
 /// Types text directly by simulating individual key presses.
 fn paste_direct(text: &str, app_handle: &AppHandle) -> Result<(), String> {
-    with_enigo(app_handle, |enigo| input::paste_text_direct(enigo, text))
+    let text = text.to_string();
+    with_enigo(app_handle, move |enigo| {
+        input::paste_text_direct(enigo, &text)
+    })
 }
 
 fn send_return_key(enigo: &mut Enigo, key_type: AutoSubmitKey) -> Result<(), String> {
@@ -141,7 +170,11 @@ fn should_send_auto_submit(auto_submit: bool, paste_method: PasteMethod) -> bool
     auto_submit && paste_method != PasteMethod::None
 }
 
+/// Pastes `text` into the focused application. Call it from a worker thread,
+/// never the main thread: it sleeps between steps, and only the input
+/// injection hops to the main thread (see `with_enigo`).
 pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
+    let _paste = PASTE_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
     let settings = get_settings(&app_handle);
     let paste_method = settings.paste_method;
 
@@ -157,8 +190,9 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
 
     if should_send_auto_submit(settings.auto_submit, paste_method) {
         std::thread::sleep(Duration::from_millis(50));
-        if let Err(error) = with_enigo(&app_handle, |enigo| {
-            send_return_key(enigo, settings.auto_submit_key)
+        let auto_submit_key = settings.auto_submit_key;
+        if let Err(error) = with_enigo(&app_handle, move |enigo| {
+            send_return_key(enigo, auto_submit_key)
         }) {
             log::warn!("Paste succeeded, but auto-submit failed: {error}");
         }

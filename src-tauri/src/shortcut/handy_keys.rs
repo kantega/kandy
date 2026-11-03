@@ -393,32 +393,6 @@ pub fn init_shortcuts(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-/// Register the cancel shortcut (called when recording starts)
-pub fn register_cancel_shortcut(app: &AppHandle) {
-    let app_clone = app.clone();
-    tauri::async_runtime::spawn(async move {
-        if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
-            if let Some(state) = app_clone.try_state::<KandyKeysState>() {
-                if let Err(e) = state.register(&cancel_binding) {
-                    error!("Failed to register cancel shortcut: {}", e);
-                }
-            }
-        }
-    });
-}
-
-/// Unregister the cancel shortcut (called when recording stops)
-pub fn unregister_cancel_shortcut(app: &AppHandle) {
-    let app_clone = app.clone();
-    tauri::async_runtime::spawn(async move {
-        if let Some(cancel_binding) = get_settings(&app_clone).bindings.get("cancel").cloned() {
-            if let Some(state) = app_clone.try_state::<KandyKeysState>() {
-                let _ = state.unregister(&cancel_binding);
-            }
-        }
-    });
-}
-
 pub fn register_shortcut(app: &AppHandle, binding: ShortcutBinding) -> Result<(), String> {
     let state = app
         .try_state::<KandyKeysState>()

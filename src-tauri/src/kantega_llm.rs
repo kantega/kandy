@@ -11,6 +11,8 @@
 use log::{error, info, warn};
 use serde::Deserialize;
 use serde_json::json;
+use std::sync::OnceLock;
+use std::time::Duration;
 
 /// `SecretMap` key under which the LLM proxy API key is stored.
 pub const LLM_KEY_ID: &str = "kantega_llmproxy";
@@ -20,6 +22,29 @@ const KANTEGA_LLMPROXY_URL: &str = "https://llmproxy.kantega.no/v1/messages";
 
 /// Anthropic Messages API version pin required by the proxy.
 const ANTHROPIC_VERSION: &str = "2023-06-01";
+
+/// The whole request, including a long meeting summary being generated.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(180);
+
+/// Process-wide client, so consecutive requests (dictation after dictation,
+/// or the parallel excerpts of an improved transcript) reuse an open
+/// connection instead of a new TCP and TLS handshake. A short idle timeout and
+/// TCP keepalive keep the pool from handing out connections that died during
+/// sleep or a network change.
+fn shared_client() -> Result<&'static reqwest::Client, String> {
+    static SHARED: OnceLock<reqwest::Client> = OnceLock::new();
+    if let Some(client) = SHARED.get() {
+        return Ok(client);
+    }
+    let client = reqwest::Client::builder()
+        .timeout(REQUEST_TIMEOUT)
+        .pool_idle_timeout(Duration::from_secs(30))
+        .tcp_keepalive(Duration::from_secs(15))
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+    Ok(SHARED.get_or_init(|| client))
+}
 
 /// Upper bound on response length. Meeting summaries are the longest output
 /// and a structured recap fits comfortably.
@@ -94,10 +119,7 @@ pub async fn complete(
         "messages": [{ "role": "user", "content": user_content }],
     });
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(180))
-        .build()
-        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+    let client = shared_client()?;
     info!(
         "Requesting completion from Kantega LLM proxy (model: {})",
         model

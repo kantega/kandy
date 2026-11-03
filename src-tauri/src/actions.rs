@@ -2,6 +2,7 @@ use crate::audio_feedback::{play_feedback_sound, play_feedback_sound_blocking, S
 use crate::audio_toolkit::{is_microphone_access_denied, is_no_input_device_error, VadPolicy};
 use crate::managers::audio::AudioRecordingManager;
 use crate::managers::history::HistoryManager;
+use crate::managers::model::ModelManager;
 use crate::managers::transcription::TranscriptionManager;
 use crate::overlay::{
     hide_recording_overlay, show_processing_overlay, show_recording_overlay,
@@ -11,15 +12,21 @@ use crate::settings::{get_settings, AppSettings};
 use crate::shortcut;
 use crate::tray::{set_tray_state, TrayIconState};
 use crate::TranscriptionCoordinator;
-use log::{debug, error};
+use log::{debug, error, warn};
 use std::collections::HashMap;
 use std::future::Future;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock};
 use std::time::{Duration, Instant};
 use tauri::Manager;
 use tauri::{AppHandle, Emitter};
 
 const CANCELLATION_POLL_INTERVAL: Duration = Duration::from_millis(25);
+
+/// Bumped each time a recording session takes over the tray and overlay. A
+/// paste still finishing for an earlier session compares against it so its
+/// cleanup doesn't hide the new session's overlay or reset its tray icon.
+static RECORDING_SESSION: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone, serde::Serialize)]
 struct RecordingErrorEvent {
@@ -60,6 +67,20 @@ fn strip_invisible_chars(s: &str) -> String {
 /// of making the model reply with an error message.
 fn is_blank_transcription(transcription: &str) -> bool {
     transcription.trim().is_empty()
+}
+
+/// The post-processed text, or `None` when the model answered with nothing,
+/// so the dictation falls back to the original transcription instead of
+/// pasting an empty string.
+fn non_blank_post_processed_text(text: String) -> Option<String> {
+    if is_blank_transcription(&text) {
+        warn!(
+            "Post-processing returned an empty response. Falling back to original transcription."
+        );
+        None
+    } else {
+        Some(text)
+    }
 }
 
 async fn complete_unless_cancelled<F, C>(operation: F, is_cancelled: C) -> Option<F::Output>
@@ -116,7 +137,7 @@ async fn post_process_transcription(settings: &AppSettings, transcription: &str)
                 "LLM post-processing succeeded. Output length: {} chars",
                 content.len()
             );
-            Some(content)
+            non_blank_post_processed_text(content)
         }
         Err(e) => {
             error!(
@@ -176,7 +197,21 @@ impl ShortcutAction for TranscribeAction {
             }
         });
 
+        // Don't open the mic if nothing can transcribe the recording; the load
+        // kicked off above fails and reports why.
+        if !tm.is_model_loaded() {
+            let selected_model = get_settings(app).selected_model;
+            if let Err(e) = app
+                .state::<Arc<ModelManager>>()
+                .get_model_path(&selected_model)
+            {
+                warn!("Not starting recording: no model can transcribe it ({})", e);
+                return false;
+            }
+        }
+
         let binding_id = binding_id.to_string();
+        RECORDING_SESSION.fetch_add(1, Ordering::SeqCst);
         set_tray_state(app, TrayIconState::Recording);
 
         let settings = get_settings(app);
@@ -428,29 +463,44 @@ impl ShortcutAction for TranscribeAction {
             let paste_time = Instant::now();
             let final_text = processed.final_text;
             let rm_for_paste = Arc::clone(&rm);
-            ah.run_on_main_thread(move || {
-                if rm_for_paste.was_cancelled_since(cancel_generation) {
-                    debug!("Transcription operation cancelled before paste");
-                    hide_recording_overlay(&ah_clone);
-                    set_tray_state(&ah_clone, TrayIconState::Idle);
-                    return;
-                }
-
-                match crate::clipboard::paste(final_text, ah_clone.clone()) {
-                    Ok(()) => debug!("Text pasted successfully in {:?}", paste_time.elapsed()),
-                    Err(e) => {
-                        error!("Failed to paste transcription: {}", e);
-                        let _ = ah_clone.emit("paste-error", ());
+            // Taken before the paste thread exists, and so before the next
+            // session can start.
+            let session = RECORDING_SESSION.load(Ordering::SeqCst);
+            // Paste on its own thread, not the main one: it sleeps between
+            // steps, and a paste into Kandy's own windows needs the main thread
+            // free to land.
+            std::thread::Builder::new()
+                .name("paste".into())
+                .spawn(move || {
+                    if rm_for_paste.was_cancelled_since(cancel_generation) {
+                        debug!("Transcription operation cancelled before paste");
+                        hide_recording_overlay(&ah_clone);
+                        set_tray_state(&ah_clone, TrayIconState::Idle);
+                        return;
                     }
-                }
-                hide_recording_overlay(&ah_clone);
-                set_tray_state(&ah_clone, TrayIconState::Idle);
-            })
-            .unwrap_or_else(|e| {
-                error!("Failed to run paste on main thread: {:?}", e);
-                hide_recording_overlay(&ah);
-                set_tray_state(&ah, TrayIconState::Idle);
-            });
+
+                    match crate::clipboard::paste(final_text, ah_clone.clone()) {
+                        Ok(()) => {
+                            debug!("Text pasted successfully in {:?}", paste_time.elapsed())
+                        }
+                        Err(e) => {
+                            error!("Failed to paste transcription: {}", e);
+                            let _ = ah_clone.emit("paste-error", ());
+                        }
+                    }
+                    // A new session may have started while this paste ran; the
+                    // UI is now its.
+                    if RECORDING_SESSION.load(Ordering::SeqCst) == session {
+                        hide_recording_overlay(&ah_clone);
+                        set_tray_state(&ah_clone, TrayIconState::Idle);
+                    }
+                })
+                .map(|_| ())
+                .unwrap_or_else(|e| {
+                    error!("Failed to start the paste thread: {:?}", e);
+                    hide_recording_overlay(&ah);
+                    set_tray_state(&ah, TrayIconState::Idle);
+                });
         });
 
         debug!(
@@ -491,7 +541,10 @@ pub static ACTION_MAP: LazyLock<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy
 
 #[cfg(test)]
 mod tests {
-    use super::{complete_unless_cancelled, is_blank_transcription};
+    use super::{
+        complete_unless_cancelled, is_blank_transcription, non_blank_post_processed_text,
+        strip_invisible_chars,
+    };
     use std::future;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
@@ -504,6 +557,25 @@ mod tests {
         assert!(is_blank_transcription("   "));
         assert!(is_blank_transcription("\t\n  \r\n"));
         assert!(!is_blank_transcription("  hello  "));
+    }
+
+    #[test]
+    fn blank_post_processed_text_is_rejected() {
+        for text in ["", "   ", "\t\n\r\n", "\u{00A0}\u{2003}"] {
+            assert_eq!(non_blank_post_processed_text(text.to_string()), None);
+        }
+        let invisible = strip_invisible_chars("\u{200B}\u{200C}\u{200D}\u{FEFF}");
+        assert_eq!(non_blank_post_processed_text(invisible), None);
+    }
+
+    #[test]
+    fn non_blank_post_processed_text_is_preserved() {
+        for text in ["Ryddet tekst.", "  Ja.\n", "0"] {
+            assert_eq!(
+                non_blank_post_processed_text(text.to_string()),
+                Some(text.to_string())
+            );
+        }
     }
 
     #[test]

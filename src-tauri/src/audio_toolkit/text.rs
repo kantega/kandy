@@ -322,6 +322,49 @@ fn collapse_stutters(text: &str) -> String {
     result.join(" ")
 }
 
+/// Whether a word appended to `kept` would open a sentence: nothing but
+/// whitespace so far, or the last visible character ends a sentence.
+fn opens_sentence(kept: &str) -> bool {
+    kept.trim_end()
+        .chars()
+        .next_back()
+        .is_none_or(|c| matches!(c, '.' | '!' | '?' | '…'))
+}
+
+/// Appends `segment` to `kept`. While `capital_owed` is set, the first
+/// alphanumeric character of `segment` is uppercased and the debt is settled.
+fn push_restoring_capital(kept: &mut String, segment: &str, capital_owed: &mut bool) {
+    if *capital_owed {
+        if let Some((index, first)) = segment.char_indices().find(|(_, c)| c.is_alphanumeric()) {
+            *capital_owed = false;
+            kept.push_str(&segment[..index]);
+            kept.extend(first.to_uppercase());
+            kept.push_str(&segment[index + first.len_utf8()..]);
+            return;
+        }
+    }
+    kept.push_str(segment);
+}
+
+/// Deletes every match of one filler pattern. A capitalized filler that opened
+/// a sentence hands its capital to the word that takes its place, so
+/// "Øh, vi starter" becomes "Vi starter" rather than "vi starter".
+fn remove_filler_matches(text: &str, pattern: &Regex) -> String {
+    let mut kept = String::with_capacity(text.len());
+    let mut resume = 0;
+    let mut capital_owed = false;
+
+    for filler in pattern.find_iter(text) {
+        push_restoring_capital(&mut kept, &text[resume..filler.start()], &mut capital_owed);
+        let capitalized = filler.as_str().starts_with(char::is_uppercase);
+        capital_owed |= capitalized && opens_sentence(&kept);
+        resume = filler.end();
+    }
+    push_restoring_capital(&mut kept, &text[resume..], &mut capital_owed);
+
+    kept
+}
+
 /// Removes filler words from transcription output when enabled.
 pub fn remove_filler_words(text: &str, enabled: bool) -> String {
     if !enabled {
@@ -330,7 +373,7 @@ pub fn remove_filler_words(text: &str, enabled: bool) -> String {
 
     let mut filtered = text.to_string();
     for pattern in FILLER_PATTERNS.iter() {
-        filtered = pattern.replace_all(&filtered, "").to_string();
+        filtered = remove_filler_matches(&filtered, pattern);
     }
     filtered
 }
@@ -416,7 +459,7 @@ mod tests {
     fn test_filter_filler_words_case_insensitive() {
         let text = "UHM this is UH a test";
         let result = filter_transcription_output(text);
-        assert_eq!(result, "this is a test");
+        assert_eq!(result, "This is a test");
     }
 
     #[test]
@@ -444,7 +487,20 @@ mod tests {
     fn test_filter_combined() {
         let text = "  Uhm, so I was, uh, thinking about this  ";
         let result = filter_transcription_output(text);
-        assert_eq!(result, "so I was, thinking about this");
+        assert_eq!(result, "So I was, thinking about this");
+    }
+
+    #[test]
+    fn test_filter_leading_filler_keeps_sentence_capital() {
+        let result = filter_transcription_output("Øh, vi starter med budsjettet.");
+        assert_eq!(result, "Vi starter med budsjettet.");
+
+        let result = filter_transcription_output("Det stemmer. Ehm, la meg sjekke.");
+        assert_eq!(result, "Det stemmer. La meg sjekke.");
+
+        // Mid-sentence there is no capital to hand over.
+        let result = filter_transcription_output("Han sa, Øh, ikke i dag.");
+        assert_eq!(result, "Han sa, ikke i dag.");
     }
 
     #[test]

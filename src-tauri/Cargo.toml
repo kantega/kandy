@@ -1,6 +1,6 @@
 [package]
 name = "kandy"
-version = "0.13.0"
+version = "0.13.1"
 description = "Kandy"
 authors = ["cjpais"]
 edition = "2021"
@@ -91,7 +91,7 @@ chrono = "0.4"
 rusqlite = { version = "0.37", features = ["bundled"] }
 sha2 = "0.10"
 # Whisper-family models run through transcribe-cpp (GGUF/ggml, native backends).
-# The Metal backend feature is added in the macOS target table.
+# The Metal backend feature is added for Apple Silicon only, further down.
 transcribe-cpp = { version = "0.2.3", default-features = false }
 handy-keys = "0.3.4"
 clap = { version = "4", features = ["derive"] }
@@ -110,9 +110,15 @@ signal-hook = "0.3"
 tauri-plugin-autostart = "2.5.1"
 tauri-plugin-single-instance = "2.3.2"
 
+# Apple Silicon links the Metal backend. Intel Macs stay on the CPU:
+# ggml-metal compiles its shader library when the backend starts, and on some
+# AMD GPUs that compile never finishes, which hangs every model load
+# (Handy #2340). Metal buys little on Intel at these model sizes anyway.
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+transcribe-cpp = { version = "0.2.3", default-features = false, features = ["metal"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri-nspanel = { git = "https://github.com/ahkohd/tauri-nspanel", branch = "v2.1" }
-transcribe-cpp = { version = "0.2.3", default-features = false, features = ["metal"] }
 # Carbon-backed global shortcuts: only the macOS Secure Input fallback uses
 # them (handy-keys' event tap goes blind while secure input is held).
 tauri-plugin-global-shortcut = "2.3.1"
